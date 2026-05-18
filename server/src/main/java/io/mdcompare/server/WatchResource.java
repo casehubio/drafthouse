@@ -51,8 +51,10 @@ public class WatchResource {
                         }
                         if (!key.reset()) break;
                     }
-                } catch (InterruptedException | ClosedWatchServiceException e) {
+                } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                } catch (ClosedWatchServiceException ignored) {
+                    // WatchService was closed by onTermination — normal shutdown path
                 } finally {
                     em.complete();
                 }
