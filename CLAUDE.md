@@ -52,6 +52,8 @@ cd server && /opt/homebrew/bin/mvn test
 
 The 2 skipped tests are scroll-sync tests that self-skip when the fixture content fits in the viewport — correct behaviour, not failures.
 
+**Cold-start note:** On a machine with many JVM processes running (e.g. IntelliJ with multiple projects), the full suite can fail on first run due to JVM startup time. Run it twice — the second run passes in ~10s. Or run each spec file individually. See issue #6.
+
 **Test fixtures:** Written to `$TMPDIR/mdcompare-test-{a,b}.md` by `global-setup.js` before each Playwright run.
 
 ## Key Directories
