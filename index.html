@@ -123,7 +123,7 @@ async function fetchFile(filePath) {
   return res.text();
 }
 
-function watchFile(panel, filePath) {
+function watchFile(filePath) {
   if (watchers[filePath]) return; // EventSource already open
   const es = new EventSource(apiUrl(`/api/watch?path=${encodeURIComponent(filePath)}`));
   es.onmessage = async () => {
@@ -185,10 +185,11 @@ async function loadFile(panel, path) {
     const content = await fetchFile(path);
     renderMarkdown(panel, content);
   } catch (err) {
+    panels[panel].content = null;
     $(`render-${panel}`).innerHTML =
       `<p style="color:var(--error);padding:24px">Could not read file: ${err.message}</p>`;
   }
-  watchFile(panel, path);
+  watchFile(path);
   updateSwapButton();
 }
 
@@ -391,8 +392,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setupDropZone('a');
   setupDropZone('b');
   ['a', 'b'].forEach(p =>
-    $(`label-${p}`).addEventListener('input',
-      () => { panels[p].label = $(`label-${p}`).value; }));
+    $(`label-${p}`).addEventListener('input', () => {
+      panels[p].label = $(`label-${p}`).value;
+      syncPanelDOM(p);
+    }));
   new ResizeObserver(updateDiffMap).observe($('divider'));
 
   $('diff-map').addEventListener('click', e => {
