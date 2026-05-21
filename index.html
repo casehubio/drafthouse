@@ -206,7 +206,6 @@ function updateSwapButton() {
 
 function swapPanels() {
   if (!panels.a.path || !panels.b.path) return;
-  currentChunkIdx = -1;
   [panels.a, panels.b] = [panels.b, panels.a];
   syncPanelDOM('a');
   syncPanelDOM('b');
@@ -519,6 +518,8 @@ document.addEventListener('DOMContentLoaded', () => {
       c.op !== 'eq' && c[startKey] <= clickLine && c[endKey] > clickLine);
     if (ci < 0) return;
     scrollToChunk(ci);
+    currentChunkIdx = ci;
+    updateNavCounter(nonEqIndices());
   });
 });
 </script>
