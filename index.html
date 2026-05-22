@@ -482,9 +482,93 @@ function updateDiffMap() {
   drawDiffMap(a.length, b.length, chunks);
   annotateRendered('a', panels.a.content, chunks);
   annotateRendered('b', panels.b.content, chunks);
+  annotateWordDiffs(chunks);
   currentChunkIdx = -1;
   updateDiffSummary();
   updateNavButtons();
+}
+
+// ── Word-level diff ──────────────────────────────────────────────────
+function tokenize(text) {
+  const tokens = [];
+  let pos = 0;
+  for (const m of text.matchAll(/\S+/g)) {
+    if (m.index > pos) tokens.push({ text: text.slice(pos, m.index), word: false });
+    tokens.push({ text: m[0], word: true, start: m.index, end: m.index + m[0].length });
+    pos = m.index + m[0].length;
+  }
+  if (pos < text.length) tokens.push({ text: text.slice(pos), word: false });
+  return tokens;
+}
+
+function wordDiff(textA, textB) {
+  const ta = tokenize(textA).filter(t => t.word);
+  const tb = tokenize(textB).filter(t => t.word);
+  const m = ta.length, n = tb.length;
+  const dp = Array.from({ length: m + 1 }, () => new Uint32Array(n + 1));
+  for (let i = m - 1; i >= 0; i--)
+    for (let j = n - 1; j >= 0; j--)
+      dp[i][j] = ta[i].text === tb[j].text ? dp[i+1][j+1] + 1
+                                            : Math.max(dp[i+1][j], dp[i][j+1]);
+  const rangesA = [], rangesB = [];
+  let i = 0, j = 0;
+  while (i < m || j < n) {
+    if (i < m && j < n && ta[i].text === tb[j].text) { i++; j++; }
+    else if (j >= n || (i < m && dp[i+1][j] >= dp[i][j+1])) {
+      rangesA.push([ta[i].start, ta[i].end]); i++;
+    } else {
+      rangesB.push([tb[j].start, tb[j].end]); j++;
+    }
+  }
+  return { rangesA, rangesB };
+}
+
+function applyWordHighlights(el, changedRanges, markClass) {
+  if (!changedRanges.length) return;
+  const walker = document.createTreeWalker(el, 4); // NodeFilter.SHOW_TEXT
+  const nodes = [];
+  let node, off = 0;
+  while ((node = walker.nextNode())) {
+    nodes.push({ node, start: off, end: off + node.length });
+    off += node.length;
+  }
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const { node, start, end } = nodes[i];
+    const overlaps = changedRanges.filter(([rs, re]) => re > start && rs < end);
+    if (!overlaps.length) continue;
+    const segs = [];
+    let pos = start;
+    for (const [rs, re] of overlaps) {
+      if (rs > pos) segs.push({ t: node.data.slice(pos - start, rs - start), ch: false });
+      segs.push({ t: node.data.slice(Math.max(rs, start) - start, Math.min(re, end) - start), ch: true });
+      pos = re;
+    }
+    if (pos < end) segs.push({ t: node.data.slice(pos - start), ch: false });
+    const frag = document.createDocumentFragment();
+    for (const s of segs) {
+      if (s.ch) {
+        const mark = document.createElement('mark');
+        mark.className = markClass;
+        mark.textContent = s.t;
+        frag.appendChild(mark);
+      } else {
+        frag.appendChild(document.createTextNode(s.t));
+      }
+    }
+    node.parentNode.replaceChild(frag, node);
+  }
+}
+
+function annotateWordDiffs(chunks) {
+  chunks.forEach((c, ci) => {
+    if (c.op !== 'mod') return;
+    const elA = $('render-a').querySelector(`[data-diff-chunk="${ci}"]`);
+    const elB = $('render-b').querySelector(`[data-diff-chunk="${ci}"]`);
+    if (!elA || !elB || elA.tagName === 'PRE' || elB.tagName === 'PRE') return;
+    const { rangesA, rangesB } = wordDiff(elA.textContent, elB.textContent);
+    applyWordHighlights(elA, rangesA, 'diff-word-a');
+    applyWordHighlights(elB, rangesB, 'diff-word-b');
+  });
 }
 
 // ── Critique panel stub ──────────────────────────────────────────────
