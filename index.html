@@ -529,6 +529,9 @@ function applyWordHighlights(el, changedRanges, markClass) {
   const nodes = [];
   let node, off = 0;
   while ((node = walker.nextNode())) {
+    // Skip text nodes inside <code> (inline code spans) — include their length
+    // in the offset so ranges from wordDiff() remain correctly aligned.
+    if (node.parentNode.tagName === 'CODE') { off += node.length; continue; }
     nodes.push({ node, start: off, end: off + node.length });
     off += node.length;
   }
@@ -560,6 +563,10 @@ function applyWordHighlights(el, changedRanges, markClass) {
 }
 
 function annotateWordDiffs(chunks) {
+  // Strip any existing word-diff marks before re-annotating (e.g. from ResizeObserver)
+  document.querySelectorAll('mark.diff-word-a, mark.diff-word-b').forEach(m => {
+    m.replaceWith(document.createTextNode(m.textContent));
+  });
   chunks.forEach((c, ci) => {
     if (c.op !== 'mod') return;
     const elA = $('render-a').querySelector(`[data-diff-chunk="${ci}"]`);
