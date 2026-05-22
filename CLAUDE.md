@@ -45,7 +45,7 @@ cd server && /opt/homebrew/bin/mvn package -DskipTests
 cd server && /opt/homebrew/bin/mvn test
 ```
 
-**Playwright E2E tests (28 passing, 2 intentionally skipped):**
+**Playwright E2E tests (33 passing, 2 intentionally skipped):**
 ```bash
 ./node_modules/.bin/playwright test --reporter=list
 ```
@@ -97,6 +97,7 @@ Electron (renderer: index.html)
   ├── nextDiff() / prevDiff()      ← n/p keyboard + ↑↓ buttons; viewport-recalibrating nav
   ├── scrollToChunk(ci)            ← scrolls both panels to annotated diff element
   ├── updateDiffSummary()          ← ~N −N +N topbar label; hover tooltip explains symbols
+  ├── annotateWordDiffs()          ← word-level highlights within mod blocks; DOM-walking, preserves inline formatting
   ├── LCS line diff                ← compare A and B
   ├── Canvas minimap               ← red=A-side changes, green=B-side changes
   └── annotateRendered()           ← border-top/bottom on changed blocks
