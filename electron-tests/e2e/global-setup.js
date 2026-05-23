@@ -4,10 +4,7 @@ const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
 const { _electron: electron } = require('playwright');
-
-const ELECTRON_BIN = process.env.ELECTRON_BIN ||
-  '/Users/mdproctor/claude/sparge/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron';
-const APP_PATH = path.join(__dirname, '..', '..');
+const { ELECTRON_BIN, APP_PATH } = require('./helpers');
 
 module.exports = async function globalSetup() {
   const fileA = path.join(os.tmpdir(), 'mdcompare-test-a.md');

@@ -57,6 +57,9 @@ test.describe('diff navigation', () => {
     const after = await window.evaluate(() => document.getElementById('diff-counter').textContent);
     expect(after).toMatch(/^\d+ \/ \d+$/);
     expect(after).not.toBe(before);
+    const beforeNum = parseInt(before.split(' / ')[0]);
+    const afterNum  = parseInt(after.split(' / ')[0]);
+    expect(afterNum).toBeLessThan(beforeNum);
   });
 
   test('nav buttons disabled and counter dashes when files are identical', async () => {
