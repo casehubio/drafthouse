@@ -184,8 +184,6 @@ async function loadFile(panel, path) {
   const prev = panels[panel].path;
   panels[panel].path = path;
   panels[panel].label = path.split('/').pop();
-  $(`path-${panel}`).textContent = path;
-  $(`path-${panel}`).classList.add('loaded');
   if (prev && prev !== path) unwatchFile(prev);
   try {
     const content = await fetchFile(path);
@@ -368,11 +366,11 @@ function setupDropZone(panel) {
     e.preventDefault(); e.stopPropagation(); body.classList.add('drag-over');
   });
   body.addEventListener('dragleave', () => body.classList.remove('drag-over'));
-  body.addEventListener('drop', e => {
+  body.addEventListener('drop', async e => {
     e.preventDefault(); e.stopPropagation();
     body.classList.remove('drag-over');
     const file = e.dataTransfer.files[0];
-    if (file && file.path) loadFile(panel, file.path);
+    if (file && file.path) await loadFile(panel, file.path);
   });
 }
 
@@ -458,8 +456,12 @@ function annotateRendered(panel, content, chunks) {
     if (token.type !== 'space') {
       const el = elements[elIdx++];
       if (el) {
+        // marked v9 paragraph tokens have rawLines=0 (raw has no trailing newline).
+        // Use line+1 as the minimum upper bound so a chunk starting exactly at `line`
+        // is still matched. Headings (rawLines>=1) are unaffected.
+        const endForCheck = Math.max(tokenEnd, line + 1);
         const ci = chunks.findIndex(c =>
-          c.op !== 'eq' && c[startKey] < tokenEnd && c[endKey] > line);
+          c.op !== 'eq' && c[startKey] < endForCheck && c[endKey] > line);
         if (ci >= 0) {
           el.dataset.diffChunk = ci;
           el.classList.add(panel === 'a' ? 'diff-del' : 'diff-ins');
@@ -594,13 +596,13 @@ document.addEventListener('keydown', e => {
 // ── Init ─────────────────────────────────────────────────────────────
 let _pendingFiles = null;
 
-window.compare.onInitConfig(({ port }) => {
+window.compare.onInitConfig(async ({ port }) => {
   API_PORT = port;
   if (_pendingFiles) {
     const [pathA, pathB] = _pendingFiles;
     _pendingFiles = null;
-    if (pathA) loadFile('a', pathA);
-    if (pathB) loadFile('b', pathB);
+    if (pathA) await loadFile('a', pathA);
+    if (pathB) await loadFile('b', pathB);
   }
 });
 
@@ -617,7 +619,6 @@ document.addEventListener('DOMContentLoaded', () => {
   ['a', 'b'].forEach(p =>
     $(`label-${p}`).addEventListener('input', () => {
       panels[p].label = $(`label-${p}`).value;
-      syncPanelDOM(p);
     }));
   new ResizeObserver(updateDiffMap).observe($('divider'));
 

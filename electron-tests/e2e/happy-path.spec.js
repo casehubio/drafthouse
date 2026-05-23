@@ -76,4 +76,17 @@ test.describe('happy path', () => {
   test('sync toggle button is active by default', async () => {
     await expect(window.locator('#btn-sync')).toHaveClass(/active/);
   });
+
+  test('typing a label does not trigger a markdown re-parse', async () => {
+    await window.evaluate(() => { window._testParseCount = 0; });
+    await window.evaluate(() => {
+      const orig = marked.parse;
+      marked.parse = (...args) => { window._testParseCount++; return orig(...args); };
+    });
+    await window.locator('#label-a').fill('New Label');
+    const count = await window.evaluate(() => window._testParseCount);
+    expect(count).toBe(0);
+    // Restore
+    await window.evaluate(() => { delete window._testParseCount; });
+  });
 });
