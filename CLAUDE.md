@@ -4,6 +4,8 @@
 
 **Type:** custom (Electron + Quarkus + Playwright)
 
+**Blog directory:** `blog/` (entries go into this project repo, not mdproctor.github.io)
+
 ## Overview
 
 md-compare is a desktop side-by-side markdown comparison tool. It renders two `.md` files as HTML, computes a line-level LCS diff, shows a colour-coded minimap, and annotates changed blocks inline. Built for comparing writing drafts and style variants.
