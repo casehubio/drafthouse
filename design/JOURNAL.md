@@ -1,1 +1,1 @@
-# Design Journal — issue-13-sx-cleanup
+# Design Journal — issue-3-scroll-sync-anchors

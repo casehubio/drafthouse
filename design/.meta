@@ -1,7 +1,7 @@
-branch: issue-13-sx-cleanup
-project-sha: 1c9e8055389e9c08cdfe8d8bd51965ae39d00a31
-date: 2026-05-22
-issue: 13
+branch: issue-3-scroll-sync-anchors
+project-sha: f8c2ff09a051da6f99d86172e11f6687247ce8ca
+date: 2026-05-25
+issue: 3
 issue-repo: mdproctor/md-compare
 flyway-next-v: none
 design-repo: project
