@@ -117,6 +117,7 @@ let API_PORT    = null;
 let syncEnabled = true, syncing = false, dragging = false;
 let lastChunks = [], lastTotalA = 0, lastTotalB = 0;
 let currentChunkIdx = -1;   // index into lastChunks; -1 = no active chunk
+let scrollAnchors = [];  // [{a: scrollTopPx, b: scrollTopPx}], sorted by .a
 
 // ── API helpers ──────────────────────────────────────────────────────
 function apiUrl(path) {
@@ -320,6 +321,13 @@ function renderMarkdown(panel, content) {
   syncPanelDOM(panel);
   updateDiffMap();
 }
+
+// ── Scroll anchors ───────────────────────────────────────────────────
+function normHead(t) {
+  return t.toLowerCase().replace(/[^\w\s]/g, '').trim().split(/\s+/).slice(0, 6).join(' ');
+}
+
+function getScrollAnchors() { return scrollAnchors; }
 
 // ── Scroll sync ──────────────────────────────────────────────────────
 function setupScrollSync() {
