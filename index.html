@@ -329,6 +329,17 @@ function normHead(t) {
 
 function getScrollAnchors() { return scrollAnchors; }
 
+function interp(pos, fk, tk) {
+  const a = scrollAnchors;
+  if (a.length < 2) return pos;
+  let i = a.length - 2;
+  while (i > 0 && a[i][fk] > pos) i--;
+  const lo = a[i], hi = a[i + 1];
+  if (hi[fk] === lo[fk]) return lo[tk];
+  return lo[tk] + Math.max(0, Math.min(1, (pos - lo[fk]) / (hi[fk] - lo[fk])))
+                * (hi[tk] - lo[tk]);
+}
+
 function buildScrollAnchors() {
   const bodyA = $('body-a'), bodyB = $('body-b');
   const maxA = bodyA.scrollHeight - bodyA.clientHeight;
@@ -364,13 +375,17 @@ function setupScrollSync() {
   bodyA.addEventListener('scroll', () => {
     if (!syncEnabled || syncing) return;
     syncing = true;
-    applyPercent(bodyB, scrollPercent(bodyA));
+    bodyB.scrollTop = scrollAnchors.length >= 2
+      ? interp(bodyA.scrollTop, 'a', 'b')
+      : scrollPercent(bodyA) * (bodyB.scrollHeight - bodyB.clientHeight);
     requestAnimationFrame(() => requestAnimationFrame(() => { syncing = false; }));
   }, { passive: true });
   bodyB.addEventListener('scroll', () => {
     if (!syncEnabled || syncing) return;
     syncing = true;
-    applyPercent(bodyA, scrollPercent(bodyB));
+    bodyA.scrollTop = scrollAnchors.length >= 2
+      ? interp(bodyB.scrollTop, 'b', 'a')
+      : scrollPercent(bodyB) * (bodyA.scrollHeight - bodyA.clientHeight);
     requestAnimationFrame(() => requestAnimationFrame(() => { syncing = false; }));
   }, { passive: true });
 }
@@ -378,7 +393,11 @@ function setupScrollSync() {
 function toggleSync() {
   syncEnabled = !syncEnabled;
   $('btn-sync').classList.toggle('active', syncEnabled);
-  if (syncEnabled) applyPercent($('body-b'), scrollPercent($('body-a')));
+  if (syncEnabled) {
+    $('body-b').scrollTop = scrollAnchors.length >= 2
+      ? interp($('body-a').scrollTop, 'a', 'b')
+      : scrollPercent($('body-a')) * ($('body-b').scrollHeight - $('body-b').clientHeight);
+  }
 }
 
 // ── Drag divider ─────────────────────────────────────────────────────

@@ -38,7 +38,6 @@ async function createMainWindow(port) {
       nodeIntegration: false,
     },
   });
-  await mainWindow.loadURL(`http://127.0.0.1:${port}/`);
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.webContents.send('init:config', { port });
@@ -46,6 +45,7 @@ async function createMainWindow(port) {
       mainWindow.webContents.send('init:files', initFiles[0] || null, initFiles[1] || null);
     }
   });
+  await mainWindow.loadURL(`http://127.0.0.1:${port}/`);
 }
 
 app.whenReady().then(async () => {
