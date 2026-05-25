@@ -32,4 +32,25 @@ test.describe('scroll anchors', () => {
     const r3 = await window.evaluate(() => normHead('  Leading   Spaces  '));
     expect(r3).toBe('leading spaces');
   });
+
+  // ── buildScrollAnchors ───────────────────────────────────────────────
+
+  test('buildScrollAnchors with no shared headings returns boundary-only anchors', async () => {
+    const filler = Array.from({ length: 100 },
+      (_, i) => `Paragraph ${i + 1} of filler content for scroll testing.`
+    ).join('\n\n');
+    const contentA = `# Title A\n\n${filler}`;
+    const contentB = `# Title B\n\n${filler}`;
+
+    await window.evaluate(([a, b]) => {
+      renderMarkdown('a', a);
+      renderMarkdown('b', b);
+    }, [contentA, contentB]);
+
+    const anchors = await window.evaluate(() => getScrollAnchors());
+    expect(anchors.length).toBe(2);
+    expect(anchors[0]).toEqual({ a: 0, b: 0 });
+    expect(anchors[1].a).toBeGreaterThan(0);
+    expect(anchors[1].b).toBeGreaterThan(0);
+  });
 });
