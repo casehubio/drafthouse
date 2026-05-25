@@ -170,11 +170,6 @@ function scrollPercent(el) {
   const max = el.scrollHeight - el.clientHeight;
   return max <= 0 ? 0 : Math.min(1, el.scrollTop / max);
 }
-function applyPercent(el, pct) {
-  const max = el.scrollHeight - el.clientHeight;
-  if (max > 0) el.scrollTop = pct * max;
-}
-
 // ── File loading ─────────────────────────────────────────────────────
 async function selectFile(panel) {
   const path = await window.compare.selectFile();
@@ -357,11 +352,16 @@ function buildScrollAnchors() {
                   pos: el.getBoundingClientRect().top - brB.top + bodyB.scrollTop }));
 
   const anchors = [{ a: 0, b: 0 }];
+  const usedB = new Set();
   for (const ah of aHds) {
-    const match = bHds.find(bh => bh.text === ah.text)
-               ?? bHds.find(bh => bh.text.startsWith(ah.text.slice(0, 18))
-                                || ah.text.startsWith(bh.text.slice(0, 18)));
-    if (match) anchors.push({ a: ah.pos, b: match.pos });
+    let bi = bHds.findIndex((bh, i) => !usedB.has(i) && bh.text === ah.text);
+    if (bi < 0) bi = bHds.findIndex((bh, i) => !usedB.has(i) && (
+      (ah.text.length >= 18 && bh.text.startsWith(ah.text.slice(0, 18)))
+      || (bh.text.length >= 18 && ah.text.startsWith(bh.text.slice(0, 18)))));
+    if (bi >= 0) {
+      usedB.add(bi);
+      anchors.push({ a: ah.pos, b: bHds[bi].pos });
+    }
   }
   anchors.push({ a: maxA, b: maxB });
 

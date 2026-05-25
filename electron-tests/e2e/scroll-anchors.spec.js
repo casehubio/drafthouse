@@ -85,6 +85,71 @@ test.describe('scroll anchors', () => {
     expect(anchors[anchors.length - 1].b).toBeGreaterThan(0);
   });
 
+  // ── interp edge cases ────────────────────────────────────────────────
+
+  test('interp with no anchors returns pos unchanged', async () => {
+    const result = await window.evaluate(() => {
+      scrollAnchors = [];
+      return interp(42, 'a', 'b');
+    });
+    expect(result).toBe(42);
+  });
+
+  test('interp with degenerate segment (hi[fk] === lo[fk]) returns lo[tk]', async () => {
+    const result = await window.evaluate(() => {
+      scrollAnchors = [{ a: 0, b: 0 }, { a: 0, b: 100 }];
+      return interp(0, 'a', 'b');
+    });
+    expect(result).toBe(0);
+  });
+
+  // ── prefix / duplicate matching ─────────────────────────────────────
+
+  test('prefix fallback does not match short headings', async () => {
+    const filler = Array.from({ length: 40 },
+      (_, i) => `Paragraph ${i + 1}.`
+    ).join('\n\n');
+
+    // "Setup" (5 chars) should NOT prefix-match "Setup Instructions" — too short
+    const contentA = `## Setup\n\n${filler}\n\n## Details\n\n${filler}`;
+    const contentB = `## Setup Instructions\n\n${filler}\n\n## Details\n\n${filler}`;
+
+    await window.evaluate(([a, b]) => {
+      renderMarkdown('a', a);
+      renderMarkdown('b', b);
+    }, [contentA, contentB]);
+
+    const anchors = await window.evaluate(() => getScrollAnchors());
+
+    // "Details" matches exactly. "Setup" vs "Setup Instructions" should NOT match
+    // via prefix (too short). So: boundary + Details + boundary = 3 anchors.
+    const interiorCount = anchors.length - 2;
+    expect(interiorCount).toBe(1);
+  });
+
+  test('each B-heading is consumed at most once', async () => {
+    const filler = Array.from({ length: 30 },
+      (_, i) => `Paragraph ${i + 1}.`
+    ).join('\n\n');
+
+    // A has two headings that could both match the same B heading
+    const contentA = `## Overview\n\n${filler}\n\n## Overview\n\n${filler}`;
+    const contentB = `## Overview\n\n${filler}\n\n## Other\n\n${filler}`;
+
+    await window.evaluate(([a, b]) => {
+      renderMarkdown('a', a);
+      renderMarkdown('b', b);
+    }, [contentA, contentB]);
+
+    const anchors = await window.evaluate(() => getScrollAnchors());
+
+    // Only one A-heading should match B's "Overview" — the second A "Overview"
+    // should not re-use the same B-heading.
+    const bPositions = anchors.slice(1, -1).map(an => an.b);
+    const uniqueB = new Set(bPositions);
+    expect(uniqueB.size).toBe(bPositions.length);
+  });
+
   // ── Behavioural sync ─────────────────────────────────────────────────
 
   test('scroll sync uses heading anchors, diverging from pure percentage', async () => {
