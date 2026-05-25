@@ -5,6 +5,8 @@ const path = require('path');
 const os   = require('os');
 const { JavaServer, findFreePort } = require('../../java-server');
 
+let server = null;
+
 module.exports = async function globalSetup() {
   const fileA = path.join(os.tmpdir(), 'mdcompare-test-a.md');
   const fileB = path.join(os.tmpdir(), 'mdcompare-test-b.md');
@@ -55,10 +57,11 @@ module.exports = async function globalSetup() {
   process.env.TEST_FILE_B = fileB;
 
   console.log('[global-setup] starting shared Quarkus JVM...');
-  const server = new JavaServer();
+  server = new JavaServer();
   const port = await findFreePort();
   await server.spawnServer(port);
   process.env.TEST_QUARKUS_PORT = String(port);
-  process.env.TEST_QUARKUS_PID  = String(server.getPid());
   console.log(`[global-setup] Quarkus ready on port ${port} (pid ${server.getPid()})`);
 };
+
+module.exports.getServer = () => server;

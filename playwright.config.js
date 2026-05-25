@@ -7,6 +7,6 @@ module.exports = defineConfig({
   globalTeardown:  './electron-tests/e2e/global-teardown.js',
   timeout:         180_000,
   retries:         0,
-  workers:         1,   // Electron tests spawn a Quarkus JVM — must not run in parallel
+  workers:         1,   // Sequential — specs share one Quarkus JVM via global-setup
   use: { headless: false },
 });
