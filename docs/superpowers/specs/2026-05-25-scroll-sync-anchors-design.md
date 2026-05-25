@@ -67,11 +67,11 @@ function buildScrollAnchors() {
 }
 ```
 
-**Matching:** exact text first, then 18-char prefix fallback (either direction). Handles headings that are slightly reworded or split across structural revisions. Unmatched headings are skipped — surrounding anchors carry the interpolation load.
+**Matching:** exact text first, then 18-char prefix fallback (either direction). Prefix fallback requires the candidate heading to be at least 18 characters — short headings must match exactly to avoid false positives (e.g. "Setup" must not match "Setup Instructions"). Each B-heading is consumed at most once (tracked via a `Set`), preventing duplicate anchors when multiple A-headings could match the same B-heading. Unmatched headings are skipped — surrounding anchors carry the interpolation load.
 
 **Boundary anchors:** `{a:0, b:0}` and `{a:maxA, b:maxB}` always present. With no heading matches, the two-anchor list is mathematically equivalent to percentage sync — no special-case fallback needed.
 
-**Deduplication:** sort by `.a`, drop entries where `an.a === previous.a`. Prevents degenerate segments when a prefix match causes two A-headings to map to the same B-position.
+**Deduplication:** sort by `.a`, drop entries where `an.a === previous.a`. Combined with the B-consumption tracking, this prevents degenerate segments from either direction.
 
 **Position computation:** `el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop` gives content-absolute position, scroll-independent.
 
