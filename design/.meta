@@ -1,8 +1,0 @@
-branch: issue-6-jvm-cold-start-fix
-project-sha: 83d7389eba1686459520accd703f8064be222166
-date: 2026-05-25
-issue: 6
-issue-repo: mdproctor/md-compare
-flyway-next-v: none
-design-repo: project
-design-section-hashes:
