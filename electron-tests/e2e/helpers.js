@@ -21,15 +21,18 @@ async function launchApp(fileA, fileB) {
   const window = await app.firstWindow();
   const jsErrors = [];
   window.on('pageerror', err => jsErrors.push(err.message));
+  // polling:100 uses timer-based CDP evaluation rather than requestAnimationFrame
+  // polling (the default). RAF does not fire in hidden Electron windows, which caused
+  // waitForFunction to hang until the window became visible. See global-setup.js.
   if (fileA) await window.waitForFunction(
     () => document.querySelector('#render-a h1') !== null,
     undefined,
-    { timeout: 90_000 }
+    { timeout: 0, polling: 100 }
   );
   if (fileB) await window.waitForFunction(
     () => document.querySelector('#render-b h1') !== null,
     undefined,
-    { timeout: 90_000 }
+    { timeout: 0, polling: 100 }
   );
   return { app, window, jsErrors };
 }

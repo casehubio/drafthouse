@@ -84,4 +84,40 @@ test.describe('scroll anchors', () => {
     expect(anchors[anchors.length - 1].a).toBeGreaterThan(0);
     expect(anchors[anchors.length - 1].b).toBeGreaterThan(0);
   });
+
+  // ── Behavioural sync ─────────────────────────────────────────────────
+
+  test('scroll sync uses heading anchors, diverging from pure percentage', async () => {
+    const longFill = Array.from({ length: 80 },
+      (_, i) => `Filler paragraph ${i + 1} for divergence test.`
+    ).join('\n\n');
+    const shortFill = Array.from({ length: 10 },
+      (_, i) => `Short tail ${i + 1}.`
+    ).join('\n\n');
+
+    // A: heading near top;  B: heading near bottom (~75%+ of scroll)
+    const contentA = `## Anchor\n\n${longFill}`;
+    const contentB = `${longFill}\n\n## Anchor\n\n${shortFill}`;
+
+    await window.evaluate(([a, b]) => {
+      renderMarkdown('a', a);
+      renderMarkdown('b', b);
+    }, [contentA, contentB]);
+
+    const anchors = await window.evaluate(() => getScrollAnchors());
+    expect(anchors.length).toBeGreaterThan(2);
+
+    const { scrollB, maxB } = await window.evaluate(() => {
+      const bodyA = document.getElementById('body-a');
+      const headingA = document.querySelector('#render-a h2');
+      bodyA.scrollTop = headingA.offsetTop;
+      bodyA.dispatchEvent(new Event('scroll'));
+      const bodyB = document.getElementById('body-b');
+      return { scrollB: bodyB.scrollTop, maxB: bodyB.scrollHeight - bodyB.clientHeight };
+    });
+
+    // Anchor sync puts B near B's heading (~75%+ of maxB).
+    // Pure-% from A's tiny scrollTop would give < 5% of maxB.
+    expect(scrollB).toBeGreaterThan(maxB * 0.4);
+  });
 });

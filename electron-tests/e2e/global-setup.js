@@ -64,18 +64,12 @@ module.exports = async function globalSetup() {
   console.log('[global-setup] warming Quarkus JVM (may take 2-3 min on cold machine)...');
   const app = await electron.launch({ executablePath: ELECTRON_BIN, args: [APP_PATH, fileA, fileB] });
   const win  = await app.firstWindow();
-  win.on('console', msg => { if (msg.type() === 'error') process.stdout.write(`[startup:error] ${msg.text()}\n`); });
-  // Wait for panels to render OR an error window to appear (fast fail instead of 90s hang)
-  await win.waitForFunction(
-    () => document.querySelector('#render-a h1') !== null || document.querySelector('h2[style]') !== null,
-    undefined,
-    { timeout: 90_000 }
-  );
-  if (await win.evaluate(() => document.querySelector('#render-a h1') === null)) {
-    const errText = await win.evaluate(() => document.querySelector('p')?.textContent || 'unknown startup error');
-    throw new Error(`Startup failed: ${errText}`);
-  }
-  await win.waitForFunction(() => document.querySelector('#render-b h1') !== null, undefined, { timeout: 90_000 });
+  // polling:100 uses timer-based CDP evaluation every 100ms rather than the default
+  // requestAnimationFrame polling. RAF does not fire in hidden Electron windows
+  // (show:false until ready-to-show), which caused waitForFunction to hang indefinitely.
+  // Timer polling works regardless of window visibility.
+  await win.waitForFunction(() => document.querySelector('#render-a h1') !== null, undefined, { timeout: 0, polling: 100 });
+  await win.waitForFunction(() => document.querySelector('#render-b h1') !== null, undefined, { timeout: 0, polling: 100 });
   await app.close();
   console.log('[global-setup] JVM warm, starting tests');
 };
