@@ -1,4 +1,4 @@
-package io.mdcompare.server;
+package io.casehub.drafthouse;
 
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;

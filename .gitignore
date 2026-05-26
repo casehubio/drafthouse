@@ -1,4 +1,9 @@
-node_modules/
+target/
+**/.idea/
+*.class
+.DS_Store
+.superpowers/
+wksp
 test-results/
 playwright-report/
-.superpowers/
+node_modules/

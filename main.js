@@ -19,7 +19,7 @@ function showErrorWindow(message) {
   const win  = new BrowserWindow({ width: 700, height: 500, show: false });
   const logs = escape(server.getLogs().join('\n'));
   const html = `<!DOCTYPE html><html><body style="font-family:monospace;padding:20px;background:#1a1a1a;color:#eee">
-    <h2 style="color:#f87171">md-compare failed to start</h2>
+    <h2 style="color:#f87171">DraftHouse failed to start</h2>
     <p>${escape(message)}</p>
     <pre style="overflow:auto;background:#111;padding:10px;max-height:350px">${logs}</pre>
     </body></html>`;
@@ -54,7 +54,7 @@ app.whenReady().then(async () => {
     if (process.env.QUARKUS_PORT) {
       port = parseInt(process.env.QUARKUS_PORT, 10);
     } else {
-      server.on('fatal', () => showErrorWindow('The md-compare server crashed and could not restart.'));
+      server.on('fatal', () => showErrorWindow('The DraftHouse server crashed and could not restart.'));
       port = await findFreePort();
       await server.spawnServer(port);
     }

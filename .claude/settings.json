@@ -6,19 +6,14 @@
       "Bash(ls:*)",
       "Bash(grep:*)",
       "Bash(find . *:*)",
-      "Bash(pkill -f \"Electron.*md-compare\")",
-      "Bash(pkill -f \"mdcompare-server-runner\")",
-      "Bash(/Users/mdproctor/claude/sparge/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron *)",
-      "Bash(./node_modules/.bin/playwright *)",
       "Bash(/opt/homebrew/bin/mvn *)",
       "Bash(java *)",
-      "Bash(/opt/homebrew/bin/node *)",
-      "Bash(/opt/homebrew/bin/npm *)",
       "Bash(curl *)",
       "Bash(pgrep *)",
       "Bash(kill *)",
       "Bash(mkdir -p *)",
-      "Read(/Users/mdproctor/claude/sparge/**)"
+      "Bash(pkill -f drafthouse-server)",
+      "Bash(pkill -f \"java.*quarkus\")"
     ]
   }
 }

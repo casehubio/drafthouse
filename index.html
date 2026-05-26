@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>md-compare</title>
+<title>DraftHouse</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
@@ -31,7 +31,7 @@
 
 <!-- ── Top bar ── -->
 <div id="topbar">
-  <div id="logo">md-compare</div>
+  <div id="logo">DraftHouse</div>
   <div class="sep"></div>
   <button id="btn-sync" class="active" onclick="toggleSync()" title="Sync scroll between panels">⟺ Sync</button>
   <button id="btn-swap" onclick="swapPanels()" title="Swap panels A↔B" disabled style="opacity:.4">⇄ Swap</button>
@@ -41,7 +41,7 @@
   <span id="diff-summary" data-tooltip="" style="font-size:11px;color:#a09080;padding:0 6px;cursor:default;position:relative"></span>
   <div id="topbar-spacer"></div>
   <!-- Phase 2: critique toggle button lives here -->
-  <button id="btn-critique" onclick="toggleCritique()" title="Open critique panel (Phase 2)" style="opacity:.4" disabled>✦ Critique</button>
+  <button id="btn-critique" onclick="toggleCritique()" title="Open critique panel" style="opacity:.4" disabled>✦ Critique</button>
 </div>
 
 <!-- ── Main area ── -->
@@ -113,15 +113,18 @@ function panelsWatching(path) {
   return ['a', 'b'].filter(p => panels[p].path === path);
 }
 
-let API_PORT    = null;
 let syncEnabled = true, syncing = false, dragging = false;
 let lastChunks = [], lastTotalA = 0, lastTotalB = 0;
 let currentChunkIdx = -1;   // index into lastChunks; -1 = no active chunk
 let scrollAnchors = [];  // [{a: scrollTopPx, b: scrollTopPx}], sorted by .a
+let API_PORT = null;
+let _pendingFiles = null;
+
+const isElectron = typeof window.compare !== 'undefined';
 
 // ── API helpers ──────────────────────────────────────────────────────
 function apiUrl(path) {
-  return `http://127.0.0.1:${API_PORT}${path}`;
+  return API_PORT ? `http://127.0.0.1:${API_PORT}${path}` : path;
 }
 
 async function fetchFile(filePath) {
@@ -172,7 +175,9 @@ function scrollPercent(el) {
 }
 // ── File loading ─────────────────────────────────────────────────────
 async function selectFile(panel) {
-  const path = await window.compare.selectFile();
+  const path = isElectron
+    ? await window.compare.selectFile()
+    : prompt('Enter file path:');
   if (path) await loadFile(panel, path);
 }
 
@@ -412,23 +417,29 @@ document.addEventListener('mousemove', e => {
 });
 document.addEventListener('mouseup', () => { dragging = false; });
 
-// ── Drop zones ───────────────────────────────────────────────────────
-document.addEventListener('dragover', e => e.preventDefault());
-document.addEventListener('drop',     e => e.preventDefault());
-
+// ── Drop zones ──────────────────────────────────────────────────────
 function setupDropZone(panel) {
   const body = $(`body-${panel}`);
   body.addEventListener('dragover', e => {
-    e.preventDefault(); e.stopPropagation(); body.classList.add('drag-over');
+    e.preventDefault();
+    e.stopPropagation();
+    body.classList.add('drag-over');
   });
-  body.addEventListener('dragleave', () => body.classList.remove('drag-over'));
-  body.addEventListener('drop', async e => {
-    e.preventDefault(); e.stopPropagation();
+  body.addEventListener('dragleave', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    body.classList.remove('drag-over');
+  });
+  body.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
     body.classList.remove('drag-over');
     const file = e.dataTransfer.files[0];
-    if (file && file.path) await loadFile(panel, file.path);
+    if (file && file.path) loadFile(panel, file.path);
   });
 }
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop',     e => e.preventDefault());
 
 // ── Diff minimap (LCS line diff) ─────────────────────────────────────
 function lineDiff(textA, textB) {
@@ -652,28 +663,37 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Init ─────────────────────────────────────────────────────────────
-let _pendingFiles = null;
-
-window.compare.onInitConfig(async ({ port }) => {
-  API_PORT = port;
-  if (_pendingFiles) {
-    const [pathA, pathB] = _pendingFiles;
-    _pendingFiles = null;
+if (isElectron) {
+  window.compare.onInitConfig(cfg => {
+    API_PORT = cfg.port;
+    if (_pendingFiles) {
+      const { a, b } = _pendingFiles;
+      _pendingFiles = null;
+      if (a) loadFile('a', a);
+      if (b) loadFile('b', b);
+    }
+  });
+  window.compare.onInitFiles((a, b) => {
+    if (API_PORT) {
+      if (a) loadFile('a', a);
+      if (b) loadFile('b', b);
+    } else {
+      _pendingFiles = { a, b };
+    }
+  });
+} else {
+  (async () => {
+    const params = new URLSearchParams(window.location.search);
+    const pathA = params.get('a');
+    const pathB = params.get('b');
     if (pathA) await loadFile('a', pathA);
     if (pathB) await loadFile('b', pathB);
-  }
-});
-
-window.compare.onInitFiles(async (pathA, pathB) => {
-  if (API_PORT === null) { _pendingFiles = [pathA, pathB]; return; }
-  if (pathA) await loadFile('a', pathA);
-  if (pathB) await loadFile('b', pathB);
-});
+  })();
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   setupScrollSync();
-  setupDropZone('a');
-  setupDropZone('b');
+  if (isElectron) { setupDropZone('a'); setupDropZone('b'); }
   ['a', 'b'].forEach(p =>
     $(`label-${p}`).addEventListener('input', () => {
       panels[p].label = $(`label-${p}`).value;

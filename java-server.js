@@ -1,4 +1,4 @@
-// java-server.js — Quarkus process manager for md-compare
+// java-server.js — Quarkus process manager for DraftHouse
 'use strict';
 const { spawn }        = require('child_process');
 const http             = require('http');
@@ -43,8 +43,8 @@ function pollUntilReady(port, { intervalMs = 200, timeoutMs = 20000 } = {}) {
 }
 
 function getJarPath(isPackaged, resourcesPath) {
-  if (isPackaged) return path.join(resourcesPath, 'mdcompare-server-runner.jar');
-  return path.join(__dirname, 'server', 'target', 'mdcompare-server-runner.jar');
+  if (isPackaged) return path.join(resourcesPath, 'drafthouse-server-runner.jar');
+  return path.join(__dirname, 'server', 'target', 'drafthouse-server-runner.jar');
 }
 
 function getUiDir(isPackaged, resourcesPath) {

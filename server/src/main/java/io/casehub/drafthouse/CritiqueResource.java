@@ -1,4 +1,4 @@
-package io.mdcompare.server;
+package io.casehub.drafthouse;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.*;

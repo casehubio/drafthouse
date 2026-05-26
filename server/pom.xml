@@ -4,9 +4,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.mdcompare</groupId>
-  <artifactId>mdcompare-server</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <groupId>io.casehub</groupId>
+  <artifactId>casehub-drafthouse</artifactId>
+  <version>0.2-SNAPSHOT</version>
 
   <properties>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
@@ -82,4 +82,17 @@
       </plugin>
     </plugins>
   </build>
+
+  <distributionManagement>
+    <repository>
+      <id>github</id>
+      <name>casehubio GitHub Packages</name>
+      <url>https://maven.pkg.github.com/casehubio/drafthouse</url>
+    </repository>
+    <snapshotRepository>
+      <id>github</id>
+      <name>casehubio GitHub Packages</name>
+      <url>https://maven.pkg.github.com/casehubio/drafthouse</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>

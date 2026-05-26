@@ -1,4 +1,4 @@
-package io.mdcompare.server;
+package io.casehub.drafthouse;
 
 import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -1,4 +1,4 @@
-package io.mdcompare.server;
+package io.casehub.drafthouse;
 
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ class FileResourceTest {
     @Test
     void returns404ForMissingFile() {
         given()
-            .queryParam("path", "/tmp/mdcompare-does-not-exist-xyz.md")
+            .queryParam("path", "/tmp/drafthouse-does-not-exist-xyz.md")
         .when()
             .get("/api/file")
         .then()

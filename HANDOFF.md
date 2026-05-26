@@ -41,4 +41,4 @@ passing, 2 skipped.
 | Shared JVM design spec | `docs/superpowers/specs/2026-05-25-shared-jvm-test-infra-design.md` |
 | Playwright protocols | `docs/protocols/` (4 protocols) |
 | Blog entries | `blog/` (3 entries) |
-| GitHub repo | `mdproctor/md-compare` |
+| GitHub repo | `casehubio/drafthouse` |

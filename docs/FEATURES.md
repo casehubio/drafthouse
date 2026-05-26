@@ -1,6 +1,6 @@
 # Feature Backlog
 
-Planned and completed features for md-compare.
+Planned and completed features for DraftHouse.
 
 ## Done
 
@@ -31,14 +31,20 @@ Planned and completed features for md-compare.
 - [ ] **Improved scroll sync** — heading-anchor interpolation with percentage fallback (issue #3)
 - [ ] **Diff legend** — small colour key (red = A only, green = B only) somewhere unobtrusive
 
-### Phase 2 — LLM Critique
+### Phase 2 — DraftHouse MVP
 
-- [ ] Wire `POST /api/critique` to Claude API (streaming)
-- [ ] Critique panel content: "what changed, why it's better/worse"
-- [ ] LangChain4j integration in Quarkus server
-- [ ] Streaming prose display in the critique panel
+See research spec: `docs/superpowers/specs/2026-05-26-document-review-tool-research.md`
 
-### Phase 3 — Interactive critique (longer term)
+- [ ] MCP tool surface (start_review, push_revision, get_cursor_context, get_diff, end_review)
+- [ ] Qhorus channels for conversation threading
+- [ ] Single LLM reviewer via LangChain4j
+- [ ] Git worktree versioning (JGit)
+- [ ] Quarkus Playwright E2E tests (replacing deleted JS Playwright suite)
 
-- [ ] Select a passage → request inline rewrite
-- [ ] Generated version appears in right pane
+### Post-MVP
+
+- [ ] Selection-scoped conversation channels
+- [ ] Multi-LLM reviewers with personality library
+- [ ] ReviewStrategy SPI
+- [ ] Multi-document working sets
+- [ ] GraalVM native image

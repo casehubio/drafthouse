@@ -1,17 +1,14 @@
 {
-  "name": "md-compare",
+  "name": "drafthouse",
   "version": "1.0.0",
-  "description": "Side-by-side rendered markdown comparison viewer",
+  "description": "MCP-driven document review tool — side-by-side markdown comparison",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build:server": "cd server && mvn package -DskipTests",
-    "test:java": "cd server && mvn test",
-    "test:e2e": "playwright test"
+    "test:java": "cd server && mvn test"
   },
   "devDependencies": {
-    "electron": "^33.4.0",
-    "@playwright/test": "^1.44.0",
-    "playwright": "^1.44.0"
+    "electron": "^33.4.0"
   }
 }
