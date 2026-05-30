@@ -1,8 +1,11 @@
 # LAYER-LOG — DraftHouse
 
-> DraftHouse is an MCP-driven document review tool where any LLM can open documents,
-> show before/after versions, create reviewer agents, and have selection-scoped
-> conversations about specific parts of the document.
+Architecture record of what was built at each integration layer. Each entry is complete
+when the layer closes.
+
+**Migration note:** This file will migrate to `ARC42STORIES.MD §9.4` Layer Entries when
+that document is bootstrapped. See `../parent/docs/arc42stories-spec.md` and
+`../parent/docs/arc42stories-casehub-profile.md`.
 
 ---
 

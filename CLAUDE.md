@@ -19,6 +19,12 @@ features are Phase 2 (see research spec).
 **Canonical location:** `~/claude/casehub/drafthouse/`
 **GitHub repo:** `casehubio/drafthouse`
 
+## Agentic Harness Goals
+
+**Goal:** Production-grade MCP-driven document review tool. Any LLM client opens documents, loads before/after versions, initiates reviewer agents, and conducts selection-scoped conversations grounded in specific document regions. Phase 2 wires in Qhorus channels, LangChain4j reviewer agents, and JGit versioning to add structured critique with full CaseHub accountability.
+
+**Architecture record:** `LAYER-LOG.md` tracks integration layer entries. A layer is not complete until its entry is written. Arc42Stories migration planned — layer entries will move to `ARC42STORIES.MD §9.4` when the document is bootstrapped. See `../parent/docs/arc42stories-spec.md` and `../parent/docs/arc42stories-casehub-profile.md`.
+
 ## Platform Context
 
 This repo is a CaseHub application-tier project. Before implementing any feature
@@ -77,7 +83,7 @@ E2E tests live in `server/src/test/java/io/casehub/drafthouse/e2e/`. Fixture fil
 | `docs/FEATURES.md` | Feature backlog and DraftHouse MVP roadmap |
 | `docs/superpowers/specs/` | Design specs |
 | `docs/superpowers/plans/` | Implementation plans |
-| `LAYER-LOG.md` | CaseHub tutorial layer log |
+| `LAYER-LOG.md` | Architecture layer record |
 | `sample-a.md`, `sample-b.md` | Demo content for manual testing |
 | `blog/` | Project diary entries |
 
