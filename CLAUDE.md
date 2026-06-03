@@ -78,10 +78,11 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 |---|---|
 | `index.html` | All UI: HTML, JS, styles.css link — the entire renderer |
 | `styles.css` | Archive Room CSS tokens + panel/diff/minimap styles |
-| `server/` | Multi-module Maven parent (api/ + runtime/) |
-| `server/api/` | Pure Java domain model — no Quarkus, no Qhorus |
+| `server/` | Multi-module Maven parent (api/ + runtime/ + claude-agent/) |
+| `server/api/` | Pure Java domain model — no Quarkus, no Qhorus; includes `debate/` package |
 | `server/runtime/` | Quarkus 3.34.3 app — all resources, Qhorus, LangChain4j |
-| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Watch, Ui, Critique |
+| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Watch, Ui, ReviewerChannelBackend, debate/ |
+| `server/claude-agent/` | Optional module — ClaudeAgentSdkDebateAgentProvider (stub, pending platform#55) |
 | `server/runtime/src/main/resources/application.properties` | Quarkus config |
 | `server/runtime/target/drafthouse-server-runner.jar` | Built uber-jar (not committed) |
 | `docs/FEATURES.md` | Feature backlog and DraftHouse MVP roadmap |
