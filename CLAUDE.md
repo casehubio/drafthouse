@@ -4,7 +4,7 @@
 
 **Type:** CaseHub application (Quarkus)
 
-**Blog directory:** `blog/` (local project blog until workspace is configured)
+**Blog directory:** `wksp/blog/` (workspace blog — do not commit diary entries to the project repo; they are routed via blog-routing.yaml)
 
 ## Overview
 
@@ -92,7 +92,7 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 | `LAYER-LOG.md` | Source-of-truth draft feeding ARC42STORIES.MD; retained until migration verified |
 | `design/` | Branch scaffold — JOURNAL.md and .meta per epic branch |
 | `sample-a.md`, `sample-b.md` | Demo content for manual testing |
-| `blog/` | Project diary entries |
+| `wksp/blog/` | Project diary entries (workspace-routed — never commit to project repo) |
 
 ## Architecture
 
