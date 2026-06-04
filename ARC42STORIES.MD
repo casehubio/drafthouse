@@ -87,7 +87,7 @@ C4Context
 **Platform references**
 
 - `../parent/docs/PLATFORM.md` — capability ownership table and boundary rules
-- `../parent/docs/repos/drafthouse.md` — what this application owns (🔲 parent#145 pending)
+- `../parent/docs/repos/drafthouse.md` — what this application owns (parent#145 ✅ closed)
 
 ---
 
@@ -267,7 +267,7 @@ DraftHouse deploys as a single JVM process. No container or orchestration config
 | 1 | CaseHub Migration & Scaffold | Comparison | Scaffold | High | ✅ |
 | 2 | Platform Wiring | Review | Platform Wiring | High | ✅ |
 | 3 | Review Manifest Domain | Review | Review Domain | High | ✅ |
-| 4 | MCP Review Interface | Review | MCP Surface | High | 🔲 |
+| 4 | MCP Review Interface | Review | MCP Surface | High | ✅ |
 | 5 | Debate Channel | Review | Debate Channel | Medium | 🔲 |
 
 **Layer × Chapter matrix**
@@ -363,7 +363,7 @@ The review system can model a structured debate — questions, answers, rejectio
 #### Chapter 4 — MCP Review Interface
 
 **Journey:** Review | **Sequence:** 4 of 5 | **Status:** ✅
-**Issues:** #24 | **Blog:** 🔲 at Chapter 4 close
+**Issues:** #24 | **Blog:** ✅ `wksp/blog/2026-06-04-mdp05-mcp-surface-and-a-stale-snapshot.md`
 
 **What this delivers**
 ✅ `DraftHouseMcpTools`: `start_review`, `update_selection`, `query_review`, `end_review`. Replaces deprecated REST stubs (`ReviewSessionResource` deleted). `ReviewerChannelBackend` fixed to read live session from registry on each `post()` call.
