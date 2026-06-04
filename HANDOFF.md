@@ -1,5 +1,7 @@
 # Handover — 2026-06-03
 
+*Updated: #24, #32, parent#145, platform#55, qhorus#232 closed — removed from backlog. Cross-Module section cleared (all deps resolved).*
+
 **Branch:** `main` (clean)
 
 ## Last Session
@@ -11,40 +13,30 @@ work-end: squashed 6→1 (`git reset --soft` after a filter-repo ancestry failur
 pushed to fork and upstream, branch marked closed. CLAUDE.md updated — LAYER-LOG.md
 migration now verified complete.
 
+Then implemented DraftHouseMcpTools (`start_review`, `update_selection`, `query_review`,
+`end_review`) — Closes #24. Fixed half-null side/text validation in `update_selection`.
+Added protocols for MCP tool error strings and LLM prompt injection rules. Arc42 stale
+scan cleaned up Chapter 4, blog, and parent#145.
+
 ## Immediate Next Step
 
 ```
 /work
 ```
 
-Start issue #24 — `DraftHouseMcpTools`: `start_review`, `update_selection`, `end_review`.
-
-## Cross-Module
-
-**We're blocking:**
-- `casehubio/qhorus` — qhorus#232 (`project_channel` MCP tool + `ProjectionRenderer<S>` SPI)
-  depends on qhorus#230 (shipped). `SummaryRenderer` stays local until #232 ships. · S · Low
-
-**Blocked by:**
-- `casehubio/platform` — platform#55 (`casehub-platform-agent` module) required before
-  `ClaudeAgentSdkDebateAgentProvider` stub can be implemented · M · Med
+Pick up #25 — `ReviewSessionLifecycleIT`: assess H2 variant for the QUERY→Commitment→RESPONSE lifecycle.
 
 ## What's Left
 
-- #24 — DraftHouseMcpTools: `start_review`, `update_selection`, `end_review` · M · Low
 - #25 — ReviewSessionLifecycleIT: assess H2 variant · XS · Low
-- casehubio/parent#145 — PLATFORM.md Cross-Repo Dependency Map + APPLICATIONS.md · S · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #24 | DraftHouseMcpTools: start_review, update_selection, end_review | M | Low | Layer 3 entry point; ReviewSessionRegistry live |
-| #27 | Qhorus DebateChannel — DebateChannel type, AGREE/QUALIFY sub-classification | M | Med | Gates Layer 3 Qhorus integration |
+| #25 | ReviewSessionLifecycleIT: QUERY→Commitment→RESPONSE with H2 Qhorus datasource | XS | Low | |
+| #27 | Qhorus DebateChannel — DebateChannel type, AGREE/QUALIFY sub-classification | M | Med | Layer 3 Qhorus integration |
 | #28 | Session storage path configurability | S | Low | Hardcoded `~/.drafthouse/reviews/` |
-| #32 | Debate minor quality improvements (formatter sorting, Clock in renderer, etc.) | S | Low | Batched from code review |
-| platform#55 | casehub-platform-agent: Claude Agent SDK Quarkus wrapper | M | Med | Unblocks ClaudeAgentSdkDebateAgentProvider real impl |
-| qhorus#232 | ProjectionRenderer SPI + project_channel MCP tool | S | Low | Then SummaryRenderer can implement it |
 
 ## References
 
@@ -56,4 +48,3 @@ Start issue #24 — `DraftHouseMcpTools`: `start_review`, `update_selection`, `e
 | Epic | casehubio/drafthouse#20 — Phase 2 critique backend |
 | Latest blog | `blog/2026-06-03-mdp04-arc42stories-bootstrapped.md` |
 | Key GEs | GE-20260520-be8d9e (filter-repo ancestry break + git reset --soft fix) |
-| Platform issues | casehubio/platform#55 (casehub-platform-agent), casehubio/parent#145 (doc sync) |
