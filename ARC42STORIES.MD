@@ -296,7 +296,7 @@ flowchart LR
   style C1 fill:#90EE90,color:#000
   style C2 fill:#90EE90,color:#000
   style C3 fill:#90EE90,color:#000
-  style C4 fill:#D3D3D3,color:#000
+  style C4 fill:#90EE90,color:#000
   style C5 fill:#D3D3D3,color:#000
 ```
 
@@ -363,10 +363,14 @@ The review system can model a structured debate — questions, answers, rejectio
 #### Chapter 4 — MCP Review Interface
 
 **Journey:** Review | **Sequence:** 4 of 5 | **Status:** ✅
-**Issues:** #24 | **Blog:** ✅ `wksp/blog/2026-06-04-mdp05-mcp-surface-and-a-stale-snapshot.md`
+**Issues:** #24, #25 (epic #20 closed) | **Blog:** ✅ `wksp/blog/2026-06-04-mdp05-mcp-surface-and-a-stale-snapshot.md`
 
 **What this delivers**
 ✅ `DraftHouseMcpTools`: `start_review`, `update_selection`, `query_review`, `end_review`. Replaces deprecated REST stubs (`ReviewSessionResource` deleted). `ReviewerChannelBackend` fixed to read live session from registry on each `post()` call.
+
+✅ `ReviewSessionRegistryImpl @ApplicationScoped` extracted from `ReviewerChannelBackendFactory` — session storage decoupled from the channel-init observer. `ReviewerChannelBackendFactory` sole responsibility is now the `@Observes ChannelInitialisedEvent` backend registration.
+
+✅ `ReviewSessionLifecycleTest @QuarkusTest` — integration test proving QUERY→RESPONSE→Commitment FULFILLED lifecycle end-to-end through `DraftHouseMcpTools`. Awaitility required: `ChannelGateway.fanOut()` delivers to backends on virtual threads (GE-20260605-494ed0). `*IT.java` naming bug fixed — original class never ran under `mvn test` (GE-20260512-493c90). `DebateRoundTripIT` naming fixed in the same pass.
 
 **Layer Impact**
 | Layer | Delta |
