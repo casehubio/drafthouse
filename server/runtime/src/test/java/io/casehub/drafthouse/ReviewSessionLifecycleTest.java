@@ -1,0 +1,219 @@
+package io.casehub.drafthouse;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import jakarta.inject.Inject;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.gateway.ChannelRef;
+import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelService;
+import io.casehub.qhorus.runtime.gateway.ChannelGateway;
+import io.casehub.qhorus.runtime.message.MessageService;
+import io.casehub.qhorus.runtime.store.CommitmentStore;
+import io.quarkus.test.InjectMock;
+import io.quarkus.test.junit.QuarkusTest;
+
+/**
+ * Integration test proving the QUERY→(RESPONSE|DECLINE)→Commitment lifecycle end-to-end.
+ *
+ * ChannelGateway.fanOut() delivers to backends on virtual threads — Awaitility is required.
+ * No @TestTransaction: committed channel entities must be visible to the virtual thread's
+ * response dispatch (different transaction context). UUID correlation IDs isolate test data.
+ */
+@QuarkusTest
+class ReviewSessionLifecycleTest {
+
+    private static final Pattern SESSION_ID_PATTERN = Pattern.compile("\"sessionId\":\"([^\"]+)\"");
+    private static final Duration TIMEOUT = Duration.ofSeconds(5);
+
+    @TempDir Path tempDir;
+
+    @Inject DraftHouseMcpTools tools;
+    @Inject ChannelService channelService;
+    @Inject ChannelGateway gateway;
+    @Inject MessageService messageService;
+    @Inject CommitmentStore commitmentStore;
+    @InjectMock DocumentReviewer documentReviewer;
+
+    private Path docA, docB;
+    private String activeSessionId;
+    private Channel orphanedChannel;
+
+    @BeforeEach
+    void setUp() throws IOException {
+        docA = Files.writeString(tempDir.resolve("a.md"), "Original text");
+        docB = Files.writeString(tempDir.resolve("b.md"), "Revised text");
+        activeSessionId = null;
+        orphanedChannel = null;
+        when(documentReviewer.review(any(), any(), any(), any(), any()))
+                .thenReturn(new ReviewResult(false, "Good revision."));
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (activeSessionId != null) {
+            tools.endReview(activeSessionId, false);
+        }
+        if (orphanedChannel != null) {
+            try {
+                channelService.delete(orphanedChannel.name, true);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    // ── Test 1 — Happy path ───────────────────────────────────────────────────
+
+    @Test
+    void query_dispatchesResponse_andFulfillsCommitment() {
+        final String result = tools.startReview(docA.toString(), docB.toString());
+        final String sessionId = extractSessionId(result);
+        activeSessionId = sessionId;
+        final UUID channelId = UUID.fromString(sessionId);
+        final String correlationId = UUID.randomUUID().toString();
+
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId)
+                .sender(DraftHouseMcpTools.HUMAN_INSTANCE_ID)
+                .type(MessageType.QUERY)
+                .content("Is this revision clear?")
+                .correlationId(correlationId)
+                .actorType(ActorType.HUMAN)
+                .build());
+
+        await().atMost(TIMEOUT).until(() ->
+                messageService.findResponseByCorrelationId(channelId, correlationId).isPresent());
+
+        final var response = messageService.findResponseByCorrelationId(channelId, correlationId);
+        assertThat(response).isPresent();
+        assertThat(response.get().messageType).isEqualTo(MessageType.RESPONSE);
+        assertThat(response.get().content).isEqualTo("Good revision.");
+        assertThat(response.get().sender).isEqualTo("drafthouse-reviewer-" + sessionId);
+    }
+
+    // ── Test 2 — Orphaned channel drops query ─────────────────────────────────
+
+    @Test
+    void orphanedChannel_dropsQuery() {
+        orphanedChannel = channelService.create(
+                "drafthouse/orphan-" + UUID.randomUUID(), "Orphan session",
+                ChannelSemantic.APPEND, null);
+        gateway.initChannel(orphanedChannel.id, new ChannelRef(orphanedChannel.id, orphanedChannel.name));
+
+        final String correlationId = UUID.randomUUID().toString();
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(orphanedChannel.id)
+                .sender("human:tester")
+                .type(MessageType.QUERY)
+                .content("Hello?")
+                .correlationId(correlationId)
+                .actorType(ActorType.HUMAN)
+                .build());
+
+        // No backend registered — verify response stays empty for a stable window.
+        // during() asserts the condition holds continuously, preventing false-pass from
+        // a transient empty-then-filled state (GE-20260515-ed10ee).
+        await().during(Duration.ofSeconds(1)).atMost(Duration.ofSeconds(3))
+                .until(() -> messageService.findResponseByCorrelationId(
+                        orphanedChannel.id, correlationId).isEmpty());
+    }
+
+    // ── Test 3 — Reviewer declines ────────────────────────────────────────────
+
+    @Test
+    void query_dispatchesDecline_andDeclinesCommitment_whenReviewerDeclines() {
+        when(documentReviewer.review(any(), any(), any(), any(), any()))
+                .thenReturn(ReviewResult.decline("Out of scope."));
+
+        final String result = tools.startReview(docA.toString(), docB.toString());
+        final String sessionId = extractSessionId(result);
+        activeSessionId = sessionId;
+        final UUID channelId = UUID.fromString(sessionId);
+        final String correlationId = UUID.randomUUID().toString();
+
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId)
+                .sender(DraftHouseMcpTools.HUMAN_INSTANCE_ID)
+                .type(MessageType.QUERY)
+                .content("Off-topic question")
+                .correlationId(correlationId)
+                .actorType(ActorType.HUMAN)
+                .build());
+
+        await().atMost(TIMEOUT).until(() ->
+                messageService.findAllByCorrelationId(correlationId).stream()
+                        .anyMatch(m -> m.messageType == MessageType.DECLINE));
+
+        final var decline = messageService.findAllByCorrelationId(correlationId).stream()
+                .filter(m -> m.messageType == MessageType.DECLINE)
+                .findFirst();
+        assertThat(decline).isPresent();
+        assertThat(decline.get().content).isEqualTo("Out of scope.");
+        assertThat(commitmentStore.findByCorrelationId(correlationId))
+                .hasValueSatisfying(c -> assertThat(c.state).isEqualTo(CommitmentState.DECLINED));
+    }
+
+    // ── Test 4 — Reviewer throws (exception sanitization) ────────────────────
+
+    @Test
+    void query_dispatchesSanitizedDecline_andDeclinesCommitment_onReviewerException() {
+        when(documentReviewer.review(any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("sk-ant-api03-SECRET-KEY"));
+
+        final String result = tools.startReview(docA.toString(), docB.toString());
+        final String sessionId = extractSessionId(result);
+        activeSessionId = sessionId;
+        final UUID channelId = UUID.fromString(sessionId);
+        final String correlationId = UUID.randomUUID().toString();
+
+        messageService.dispatch(MessageDispatch.builder()
+                .channelId(channelId)
+                .sender(DraftHouseMcpTools.HUMAN_INSTANCE_ID)
+                .type(MessageType.QUERY)
+                .content("Anything")
+                .correlationId(correlationId)
+                .actorType(ActorType.HUMAN)
+                .build());
+
+        await().atMost(TIMEOUT).until(() ->
+                messageService.findAllByCorrelationId(correlationId).stream()
+                        .anyMatch(m -> m.messageType == MessageType.DECLINE));
+
+        final var decline = messageService.findAllByCorrelationId(correlationId).stream()
+                .filter(m -> m.messageType == MessageType.DECLINE)
+                .findFirst();
+        assertThat(decline).isPresent();
+        assertThat(decline.get().content).isEqualTo("Reviewer encountered an error.");
+        assertThat(decline.get().content).doesNotContain("sk-ant-api03-SECRET-KEY");
+        assertThat(commitmentStore.findByCorrelationId(correlationId))
+                .hasValueSatisfying(c -> assertThat(c.state).isEqualTo(CommitmentState.DECLINED));
+    }
+
+    // ── Helper ────────────────────────────────────────────────────────────────
+
+    private static String extractSessionId(final String json) {
+        final Matcher m = SESSION_ID_PATTERN.matcher(json);
+        if (!m.find()) throw new AssertionError("No sessionId in startReview result: " + json);
+        return m.group(1);
+    }
+}

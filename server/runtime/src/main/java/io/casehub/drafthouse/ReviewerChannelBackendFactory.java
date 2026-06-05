@@ -1,9 +1,5 @@
 package io.casehub.drafthouse;
 
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -12,42 +8,25 @@ import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.message.MessageService;
 
+/**
+ * Registers a ReviewerChannelBackend with the Qhorus gateway when a drafthouse channel
+ * is initialised. Session storage is delegated to the injected ReviewSessionRegistry.
+ */
 @ApplicationScoped
-public class ReviewerChannelBackendFactory implements ReviewSessionRegistry {
+public class ReviewerChannelBackendFactory {
 
+    @Inject ReviewSessionRegistry registry;
     @Inject ChannelGateway gateway;
     @Inject MessageService messageService;
     @Inject DocumentReviewer llm;
     @Inject DraftHouseConfig config;
 
-    private final ConcurrentHashMap<UUID, ReviewSession> sessions = new ConcurrentHashMap<>();
-
     void onChannelInitialised(@Observes ChannelInitialisedEvent event) {
         if (!event.channelName().startsWith("drafthouse/")) return;
-        if (!sessions.containsKey(event.channelId())) return;
+        if (registry.find(event.channelId()).isEmpty()) return;
         ReviewerChannelBackend backend = new ReviewerChannelBackend(
-                this, event.channelId(), messageService, llm, config.maxDocChars());
+                registry, event.channelId(), messageService, llm, config.maxDocChars());
         gateway.deregisterBackend(event.channelId(), ReviewerChannelBackend.BACKEND_ID);
         gateway.registerBackend(event.channelId(), backend, ReviewerChannelBackend.BACKEND_TYPE);
-    }
-
-    @Override
-    public Optional<ReviewSession> find(UUID channelId) {
-        return Optional.ofNullable(sessions.get(channelId));
-    }
-
-    @Override
-    public void put(ReviewSession session) {
-        sessions.put(session.channelId(), session);
-    }
-
-    @Override
-    public void remove(UUID channelId) {
-        sessions.remove(channelId);
-    }
-
-    @Override
-    public void updateSelection(UUID channelId, DocumentSide side, String text) {
-        sessions.computeIfPresent(channelId, (id, s) -> s.withSelection(side, text));
     }
 }

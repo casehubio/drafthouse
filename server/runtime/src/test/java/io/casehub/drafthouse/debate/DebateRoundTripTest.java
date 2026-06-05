@@ -12,7 +12,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 @QuarkusTest
-class DebateRoundTripIT {
+class DebateRoundTripTest {
 
     private final RoundParser           roundParser = new RoundParser();
     private final DebateEntryFormatter  formatter   = new DebateEntryFormatter();

@@ -75,6 +75,7 @@ public class ReviewerChannelBackend implements ChannelBackend {
             result = llm.review(session.personality(), session.docAContent(),
                     session.docBContent(), selectionContext, message.content());
         } catch (Exception e) {
+            LOG.warning("DocumentReviewer threw on channel " + channel.name() + ": " + e.getMessage());
             result = ReviewResult.decline("Reviewer encountered an error.");
         }
 

@@ -6,9 +6,10 @@ import java.util.UUID;
 /**
  * Registry of active document review sessions, keyed by Qhorus channel ID.
  *
- * Implemented by ReviewerChannelBackendFactory in the runtime module, which
- * holds the Map&lt;UUID, ReviewSession&gt; and registers ChannelBackend instances.
- * DraftHouseMcpTools injects this interface, not the factory directly.
+ * Implemented by ReviewSessionRegistryImpl in the runtime module.
+ * ReviewerChannelBackendFactory injects this interface to look up sessions
+ * when wiring backends on channel init. DraftHouseMcpTools also injects it
+ * directly for session lifecycle management.
  *
  * Thread-safety: implementations must be safe for concurrent calls from
  * the Qhorus InProcessMessageBus (async CDI event delivery).

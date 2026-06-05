@@ -1,0 +1,9 @@
+branch: issue-25-review-session-lifecycle-it
+project-sha: 1af1cdf
+date: 2026-06-04
+issue: 25
+issue-repo: casehubio/drafthouse
+covers: 25
+flyway-next-v: none
+design-repo: project
+design-section-hashes:

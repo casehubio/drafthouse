@@ -102,6 +102,13 @@
       <version>${casehub.qhorus.version}</version>
       <scope>test</scope>
     </dependency>
+    <!-- Awaitility — async delivery via ChannelGateway virtual threads -->
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <version>4.3.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
