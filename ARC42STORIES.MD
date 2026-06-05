@@ -385,7 +385,7 @@ The review system can model a structured debate — questions, answers, rejectio
 **Issues:** #27 | **Blog:** 🔲 at Chapter 5 close
 
 **What this delivers**
-🔲 at #27 close — Qhorus `DebateChannel` type; AGREE/QUALIFY sub-classification; `SummaryRenderer` implements `ProjectionRenderer` SPI (gates on qhorus#232).
+🔲 at #27 close — Qhorus `DebateChannel` type; AGREE/QUALIFY sub-classification; `SummaryRenderer` implements `ProjectionRenderer` SPI (qhorus#232 ✅ shipped; migration tracked in #31).
 
 **Layer Impact**
 | Layer | Delta |
@@ -590,7 +590,7 @@ What this layer adds:
 - **Provider abstraction** — `DebateAgentProvider` SPI; `LangChain4jDebateAgentProvider @DefaultBean` runs in all environments; `ClaudeAgentSdkDebateAgentProvider @Alternative @Priority(1)` displaces it transparently when platform#55 ships
 - **JGit session persistence** — `ReviewSessionService` stores sessions under `~/.drafthouse/reviews/` as Git commits; state recovered on restart by replaying commits through `SummaryProjector`
 
-Not closed here: `ProjectionRenderer` SPI (`SummaryRenderer` renders locally until qhorus#232 ships)
+Not closed here: `ProjectionRenderer` SPI (`SummaryRenderer` renders locally; qhorus#232 ✅ shipped — migration to `ChannelProjection` SPI tracked in #31)
 
 #### Accountability gaps closed
 
@@ -695,7 +695,7 @@ Cross-cutting decisions not captured inline in layer or Chapter entries.
 | Risk / Debt | Impact | Mitigation | Issue |
 |---|---|---|---|
 | `claude-agent-sdk-java` not on Maven Central | `ClaudeAgentSdkDebateAgentProvider` is a permanent stub until resolved | `LangChain4jDebateAgentProvider @DefaultBean` runs in all environments; stub is `@Alternative`; no CI impact | platform#55 |
-| `SummaryRenderer` not implementing `ProjectionRenderer` SPI | `project_channel` MCP tool (qhorus#232) can't use local renderer when it ships | Stub design documented; implement `ProjectionRenderer` once qhorus#232 delivers the SPI | qhorus#232 |
+| `SummaryRenderer` not implementing `ChannelProjection` SPI | Projection remains local file-parser; deterministic fold via Qhorus SPI unavailable | qhorus#230 ✅ shipped; migration to `ChannelProjection<ReviewState>` tracked in #31 | #31 |
 | Session storage path hardcoded to `~/.drafthouse/reviews/` | Can't configure for CI isolation or run multiple instances | Low severity; `ReviewSessionService` accepts path via constructor for test; configurable via #28 | #28 |
 | REST stubs (`POST /api/review/sessions`) in production code | Confusion for any client discovering the REST API | Removed at #24 close — `ReviewSessionResource` deleted, `DraftHouseMcpTools` ships all session control | #24 ✅ |
 
