@@ -92,4 +92,32 @@ class SummaryRendererTest {
         assertThat(output).contains("~~");
         assertThat(output).contains("declined");
     }
+
+    @Test
+    void rendersDisputedPoint_withLightningMarker_noStrikethrough() {
+        var state = new ReviewState(
+            Map.of("R1-IMP-001", new ReviewPoint("R1-IMP-001",
+                new PointClassification(Priority.P2, Scope.ISOLATED, null),
+                List.of(new ThreadEntry("R1-IMP-001", AgentType.IMP, 1, EntryType.RAISE, "Counter point.")),
+                ReviewStatus.DISPUTED)),
+            List.of());
+        String output = renderer.render(state);
+        assertThat(output).contains("⚡");
+        assertThat(output).doesNotContain("~~");
+    }
+
+    @Test
+    void rendersCounterEntryType_withCounterLabel() {
+        var state = new ReviewState(
+            Map.of("R1-REV-001", new ReviewPoint("R1-REV-001",
+                new PointClassification(Priority.P1, Scope.ISOLATED, null),
+                List.of(
+                    new ThreadEntry("R1-REV-001", AgentType.REV, 1, EntryType.RAISE, "Issue."),
+                    new ThreadEntry(null, AgentType.IMP, 2, EntryType.COUNTER, "My counter.")),
+                ReviewStatus.ACTIVE)),
+            List.of());
+        String output = renderer.render(state);
+        assertThat(output).contains("counter");
+        assertThat(output).contains("My counter.");
+    }
 }

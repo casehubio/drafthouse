@@ -23,6 +23,7 @@ public class SummaryRenderer {
                 case AGREED        -> "✅";
                 case PENDING_HUMAN -> "🔵";
                 case DECLINED      -> "🚫";
+                case DISPUTED      -> "⚡";
             };
 
             String firstContent = point.thread().isEmpty() ? "" : point.thread().get(0).content();
@@ -45,6 +46,7 @@ public class SummaryRenderer {
                 String typeLabel = switch (entry.type()) {
                     case RAISE      -> "raise";
                     case AGREE      -> "agree";
+                    case COUNTER    -> "counter";
                     case DISPUTE    -> "dispute";
                     case QUALIFY    -> "qualify";
                     case FLAG_HUMAN -> "flag";

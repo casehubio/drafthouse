@@ -258,7 +258,7 @@ class DraftHouseMcpToolsTest {
 
         assertThat(result).contains("ended");
         verify(registry).remove(channelId);
-        verify(channelService, never()).delete(anyString(), anyBoolean());
+        verify(channelService, never()).delete(any(UUID.class), anyBoolean());
     }
 
     @Test
@@ -271,7 +271,7 @@ class DraftHouseMcpToolsTest {
 
         assertThat(result).contains("ended");
         verify(registry).remove(channelId);
-        verify(channelService).delete(session.channelName(), true);
+        verify(channelService).delete(session.channelId(), true);
     }
 
     @Test

@@ -80,7 +80,7 @@ class ReviewSessionLifecycleTest {
         }
         if (orphanedChannel != null) {
             try {
-                channelService.delete(orphanedChannel.name, true);
+                channelService.delete(orphanedChannel.id, true);
             } catch (Exception ignored) {}
         }
     }

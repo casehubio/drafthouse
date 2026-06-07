@@ -1,5 +1,5 @@
 package io.casehub.drafthouse.debate;
 
 public enum EntryType {
-    RAISE, AGREE, DISPUTE, QUALIFY, FLAG_HUMAN, DECLINED
+    RAISE, AGREE, COUNTER, DISPUTE, QUALIFY, FLAG_HUMAN, DECLINED
 }

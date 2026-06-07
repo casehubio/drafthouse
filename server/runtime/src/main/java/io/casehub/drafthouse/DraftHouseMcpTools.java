@@ -106,7 +106,7 @@ public class DraftHouseMcpTools {
             LOG.warning("start_review failed: " + e.getMessage() + " — attempting cleanup");
             if (channel != null) {
                 try { registry.remove(channel.id); } catch (Exception ce) { LOG.warning("cleanup registry: " + ce.getMessage()); }
-                try { channelService.delete(channelName, true); } catch (Exception ce) { LOG.warning("cleanup channel: " + ce.getMessage()); }
+                try { channelService.delete(channel.id, true); } catch (Exception ce) { LOG.warning("cleanup channel: " + ce.getMessage()); }
             }
             return "error: " + e.getMessage();
         }
@@ -203,7 +203,7 @@ public class DraftHouseMcpTools {
 
         if (deleteChannel) {
             try {
-                channelService.delete(session.channelName(), true);
+                channelService.delete(session.channelId(), true);
             } catch (Exception e) {
                 LOG.warning("end_review: channel delete failed for " + session.channelName()
                         + ": " + e.getMessage());
