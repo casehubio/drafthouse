@@ -6,6 +6,14 @@ import io.casehub.qhorus.api.spi.RenderableProjection;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.*;
 
+/**
+ * Folds debate channel messages into ReviewState.
+ * Dispatch is on artefactRefs.entryType — debate channels always carry artefactRefs.
+ * Agent classification uses artefactRefs.agent (REV/IMP) — NOT actorType.
+ *
+ * Both REV and IMP agents are ActorType.AGENT; actorType cannot distinguish them.
+ * See PP-20260607-508f7b.
+ */
 @ApplicationScoped
 public class DebateChannelProjection implements RenderableProjection<ReviewState> {
 
@@ -22,115 +30,117 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
 
     @Override
     public ReviewState apply(ReviewState state, MessageView message) {
-        return switch (message.type()) {
-            case QUERY    -> handleRaise(state, message);
-            case RESPONSE -> handleResponse(state, message);
-            case DECLINE  -> handleDecline(state, message);
-            case HANDOFF  -> handleFlagHuman(state, message);
-            default       -> state;
+        Map<String, String> meta = parseArtefacts(message.artefactRefs());
+        String entryType = meta.get("entryType");
+        if (entryType == null) return state;
+        return switch (entryType) {
+            case "raise"      -> handleRaise(state, message, meta);
+            case "agree"      -> handleAgree(state, message, meta);
+            case "dispute"    -> handleDispute(state, message, meta);
+            case "qualify"    -> handleQualify(state, message, meta);
+            case "counter"    -> handleCounter(state, message, meta);
+            case "flag-human" -> handleFlagHuman(state, message, meta);
+            default           -> state;
         };
     }
 
     @Override
     public String render(ProjectionResult<ReviewState> result) {
-        return result.isEmpty() ? "No review activity yet." : renderer.render(result.state());
+        return result.isEmpty() ? "No debate activity yet." : renderer.render(result.state());
     }
 
     // ── fold handlers ─────────────────────────────────────────────────────────
 
-    private ReviewState handleRaise(ReviewState state, MessageView message) {
+    private ReviewState handleRaise(ReviewState state, MessageView message, Map<String, String> meta) {
         String entryId = message.correlationId();
         if (entryId == null) return state;
-        String artefacts = message.artefactRefs() != null ? message.artefactRefs() : "";
-        Map<String, String> meta = parseArtefacts(artefacts);
         Priority priority = parsePriority(meta.getOrDefault("priority", "P3"));
         Scope scope = parseScope(meta.getOrDefault("scope", "ISOLATED"));
         String location = meta.get("location");
         var classification = new PointClassification(priority, scope,
                 location != null && !location.isBlank() ? location : null);
+        int round = parseRound(meta);
         var thread = new ArrayList<ThreadEntry>();
-        // round=0: MessageView carries no round field in v1; populated by #27 DebateChannel
-        thread.add(new ThreadEntry(entryId, agentType(message), 0, EntryType.RAISE, message.content()));
+        thread.add(new ThreadEntry(entryId, agentType(meta), round, EntryType.RAISE, message.content()));
         var point = new ReviewPoint(entryId, classification, thread, ReviewStatus.OPEN);
         var points = new LinkedHashMap<>(state.points());
         points.put(entryId, point);
         return new ReviewState(points, new ArrayList<>(state.humanFlags()));
     }
 
-    private ReviewState handleResponse(ReviewState state, MessageView message) {
+    private ReviewState handleAgree(ReviewState state, MessageView message, Map<String, String> meta) {
+        return appendToPoint(state, message, meta, EntryType.AGREE, ReviewStatus.AGREED);
+    }
+
+    private ReviewState handleDispute(ReviewState state, MessageView message, Map<String, String> meta) {
+        return appendToPoint(state, message, meta, EntryType.DISPUTE, ReviewStatus.DISPUTED);
+    }
+
+    private ReviewState handleQualify(ReviewState state, MessageView message, Map<String, String> meta) {
+        return appendToPoint(state, message, meta, EntryType.QUALIFY, ReviewStatus.ACTIVE);
+    }
+
+    private ReviewState handleCounter(ReviewState state, MessageView message, Map<String, String> meta) {
+        return appendToPoint(state, message, meta, EntryType.COUNTER, ReviewStatus.ACTIVE);
+    }
+
+    private ReviewState handleFlagHuman(ReviewState state, MessageView message, Map<String, String> meta) {
+        String targetId = message.correlationId();
+        String content = Objects.requireNonNullElse(message.content(), "");
+        int round = parseRound(meta);
+        AgentType agent = agentType(meta);
+        var points = new LinkedHashMap<>(state.points());
+        if (targetId != null && points.containsKey(targetId)) {
+            ReviewPoint p = points.get(targetId);
+            var thread = new ArrayList<>(p.thread());
+            thread.add(new ThreadEntry(null, agent, round, EntryType.FLAG_HUMAN, content));
+            points.put(targetId, new ReviewPoint(p.id(), p.classification(), thread, ReviewStatus.PENDING_HUMAN));
+        }
+        var flags = new ArrayList<>(state.humanFlags());
+        flags.add(new FlagEntry(null, round, agent, content));
+        return new ReviewState(points, flags);
+    }
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    private ReviewState appendToPoint(ReviewState state, MessageView message,
+                                       Map<String, String> meta, EntryType type, ReviewStatus newStatus) {
         String targetId = message.correlationId();
         if (targetId == null) return state;
         if (!state.points().containsKey(targetId)) {
             LOG.log(System.Logger.Level.WARNING,
-                    "Response references unknown point ID: {0} — discarded", targetId);
+                    "Debate entry ({0}) references unknown point: {1} — discarded", type, targetId);
             return state;
         }
-        boolean isQualify = message.content() != null
-                && message.content().startsWith("[QUALIFY] ");
-        String content = isQualify
-                ? message.content().substring("[QUALIFY] ".length())
-                : message.content();
-        EntryType entryType = isQualify ? EntryType.QUALIFY : EntryType.AGREE;
-        ReviewStatus newStatus = isQualify ? ReviewStatus.ACTIVE : ReviewStatus.AGREED;
         ReviewPoint existing = state.points().get(targetId);
+        int round = parseRound(meta);
         var thread = new ArrayList<>(existing.thread());
-        thread.add(new ThreadEntry(null, agentType(message), 0, entryType, content));
+        thread.add(new ThreadEntry(null, agentType(meta), round, type, message.content()));
         var updated = new ReviewPoint(existing.id(), existing.classification(), thread, newStatus);
         var points = new LinkedHashMap<>(state.points());
         points.put(targetId, updated);
         return new ReviewState(points, new ArrayList<>(state.humanFlags()));
     }
 
-    private ReviewState handleDecline(ReviewState state, MessageView message) {
-        String targetId = message.correlationId();
-        if (targetId == null) return state;
-        if (!state.points().containsKey(targetId)) {
-            LOG.log(System.Logger.Level.WARNING,
-                    "Decline references unknown point ID: {0} — discarded", targetId);
-            return state;
-        }
-        ReviewPoint existing = state.points().get(targetId);
-        var thread = new ArrayList<>(existing.thread());
-        thread.add(new ThreadEntry(null, agentType(message), 0, EntryType.DECLINED,
-                Objects.requireNonNullElse(message.content(), "")));
-        var updated = new ReviewPoint(existing.id(), existing.classification(), thread, ReviewStatus.DECLINED);
-        var points = new LinkedHashMap<>(state.points());
-        points.put(targetId, updated);
-        return new ReviewState(points, new ArrayList<>(state.humanFlags()));
-    }
-
-    private ReviewState handleFlagHuman(ReviewState state, MessageView message) {
-        String targetId = message.correlationId();
-        String content = Objects.requireNonNullElse(message.content(), "");
-        var points = new LinkedHashMap<>(state.points());
-        if (targetId != null && points.containsKey(targetId)) {
-            ReviewPoint p = points.get(targetId);
-            var thread = new ArrayList<>(p.thread());
-            thread.add(new ThreadEntry(null, agentType(message), 0, EntryType.FLAG_HUMAN, content));
-            points.put(targetId, new ReviewPoint(p.id(), p.classification(), thread, ReviewStatus.PENDING_HUMAN));
-        }
-        var flags = new ArrayList<>(state.humanFlags());
-        flags.add(new FlagEntry(null, 0, agentType(message), content));
-        return new ReviewState(points, flags);
-    }
-
-    // ── helpers ───────────────────────────────────────────────────────────────
-
-    private AgentType agentType(MessageView message) {
-        if (message.actorType() == null) {
-            throw new IllegalArgumentException(
-                    "MessageView.actorType() must not be null in DebateChannelProjection");
-        }
-        return switch (message.actorType()) {
-            case HUMAN -> AgentType.REV;
-            case AGENT -> AgentType.IMP;
-            default    -> throw new IllegalArgumentException(
-                    "Unsupported actorType in debate projection: " + message.actorType());
+    private AgentType agentType(Map<String, String> meta) {
+        String agent = meta.get("agent");
+        if (agent == null) throw new IllegalArgumentException("debate message content missing META.agent field");
+        return switch (agent) {
+            case "REV" -> AgentType.REV;
+            case "IMP" -> AgentType.IMP;
+            default    -> throw new IllegalArgumentException("Unknown agent in debate artefactRefs: " + agent);
         };
+    }
+
+    private int parseRound(Map<String, String> meta) {
+        String r = meta.get("round");
+        if (r == null) return 0;
+        try { return Integer.parseInt(r); } catch (NumberFormatException e) { return 0; }
     }
 
     private Map<String, String> parseArtefacts(String artefacts) {
         Map<String, String> map = new HashMap<>();
+        if (artefacts == null || artefacts.isBlank()) return map;
         for (String part : artefacts.split("\\|")) {
             int eq = part.indexOf('=');
             if (eq > 0) map.put(part.substring(0, eq).strip(), part.substring(eq + 1).strip());

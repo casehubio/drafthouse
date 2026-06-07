@@ -4,7 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
-import io.casehub.drafthouse.debate.DebateChannelProjection;
+import io.casehub.drafthouse.debate.ReviewChannelProjection;
 import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.runtime.gateway.ChannelGateway;
 import io.casehub.qhorus.runtime.message.MessageService;
@@ -23,10 +23,11 @@ public class ReviewerChannelBackendFactory {
     @Inject DocumentReviewer llm;
     @Inject DraftHouseConfig config;
     @Inject ProjectionService projectionService;
-    @Inject DebateChannelProjection projection;
+    @Inject ReviewChannelProjection projection;
 
     void onChannelInitialised(@Observes ChannelInitialisedEvent event) {
         if (!event.channelName().startsWith("drafthouse/")) return;
+        if (event.channelName().startsWith("drafthouse/debate/")) return;
         if (registry.find(event.channelId()).isEmpty()) return;
         ReviewerChannelBackend backend = new ReviewerChannelBackend(
                 registry, event.channelId(), messageService, llm, config.reviewer().maxDocChars(),

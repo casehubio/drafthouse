@@ -97,7 +97,7 @@ class ReviewSessionLifecycleTest {
 
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId)
-                .sender(DraftHouseMcpTools.HUMAN_INSTANCE_ID)
+                .sender(DraftHouseInstances.HUMAN_INSTANCE_ID)
                 .type(MessageType.QUERY)
                 .content("Is this revision clear?")
                 .correlationId(correlationId)
@@ -156,7 +156,7 @@ class ReviewSessionLifecycleTest {
 
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId)
-                .sender(DraftHouseMcpTools.HUMAN_INSTANCE_ID)
+                .sender(DraftHouseInstances.HUMAN_INSTANCE_ID)
                 .type(MessageType.QUERY)
                 .content("Off-topic question")
                 .correlationId(correlationId)
@@ -191,7 +191,7 @@ class ReviewSessionLifecycleTest {
 
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId)
-                .sender(DraftHouseMcpTools.HUMAN_INSTANCE_ID)
+                .sender(DraftHouseInstances.HUMAN_INSTANCE_ID)
                 .type(MessageType.QUERY)
                 .content("Anything")
                 .correlationId(correlationId)
@@ -224,7 +224,7 @@ class ReviewSessionLifecycleTest {
         // First query — @BeforeEach stub returns "Good revision." for any 6-arg call
         String corrId1 = UUID.randomUUID().toString();
         messageService.dispatch(MessageDispatch.builder().channelId(channelId)
-                .sender(DraftHouseMcpTools.HUMAN_INSTANCE_ID)
+                .sender(DraftHouseInstances.HUMAN_INSTANCE_ID)
                 .type(MessageType.QUERY).content("First question.")
                 .correlationId(corrId1).actorType(ActorType.HUMAN).build());
         await().atMost(TIMEOUT).until(() ->
@@ -233,7 +233,7 @@ class ReviewSessionLifecycleTest {
         // Second query
         String corrId2 = UUID.randomUUID().toString();
         messageService.dispatch(MessageDispatch.builder().channelId(channelId)
-                .sender(DraftHouseMcpTools.HUMAN_INSTANCE_ID)
+                .sender(DraftHouseInstances.HUMAN_INSTANCE_ID)
                 .type(MessageType.QUERY).content("Second question.")
                 .correlationId(corrId2).actorType(ActorType.HUMAN).build());
         await().atMost(TIMEOUT).until(() ->

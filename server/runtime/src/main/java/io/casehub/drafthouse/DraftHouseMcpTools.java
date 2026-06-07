@@ -40,8 +40,6 @@ import io.quarkiverse.mcp.server.ToolArg;
 @ApplicationScoped
 public class DraftHouseMcpTools {
 
-    static final String HUMAN_INSTANCE_ID = "drafthouse-human";
-
     private static final Logger LOG = Logger.getLogger(DraftHouseMcpTools.class.getName());
 
     @Inject ChannelService channelService;
@@ -53,7 +51,7 @@ public class DraftHouseMcpTools {
 
     @PostConstruct
     void registerHumanInstance() {
-        instanceService.register(HUMAN_INSTANCE_ID, "DraftHouse human reviewer",
+        instanceService.register(DraftHouseInstances.HUMAN_INSTANCE_ID, "DraftHouse human reviewer",
                 List.of("document-review-human"));
     }
 
@@ -169,7 +167,7 @@ public class DraftHouseMcpTools {
         String correlationId = UUID.randomUUID().toString();
         messageService.dispatch(MessageDispatch.builder()
                 .channelId(channelId)
-                .sender(HUMAN_INSTANCE_ID)
+                .sender(DraftHouseInstances.HUMAN_INSTANCE_ID)
                 .type(MessageType.QUERY)
                 .content(question)
                 .correlationId(correlationId)

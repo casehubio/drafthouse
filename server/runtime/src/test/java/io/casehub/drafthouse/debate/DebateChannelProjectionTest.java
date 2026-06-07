@@ -13,159 +13,145 @@ class DebateChannelProjectionTest {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private static MessageView query(String correlationId, ActorType actorType,
-                                     Priority p, Scope s, String loc, String content) {
-        String artefactRefs = "entryId=" + correlationId + "|priority=" + p
-                + "|scope=" + s + "|location=" + (loc != null ? loc : "");
-        return new MessageView(null, null, "test", MessageType.QUERY,
-                content, correlationId, null, null, artefactRefs, actorType, null, null, 0);
+    private static MessageView msg(MessageType type, String correlationId, String artefactRefs, String content) {
+        return new MessageView(null, null, "test-sender", type,
+                content, correlationId, null, null, artefactRefs, ActorType.AGENT, null, null, 0);
     }
 
-    private static MessageView respond(String correlationId, ActorType actorType, String content) {
-        return new MessageView(null, null, "test", MessageType.RESPONSE,
-                content, correlationId, null, null, null, actorType, null, null, 0);
+    private static String ratefacts(String entryType, String agent, int round) {
+        return "entryType=" + entryType + "|agent=" + agent + "|round=" + round;
     }
 
-    private static MessageView decline(String correlationId, ActorType actorType, String content) {
-        return new MessageView(null, null, "test", MessageType.DECLINE,
-                content, correlationId, null, null, null, actorType, null, null, 0);
+    private static String ratefacts(String entryType, String agent, int round, String priority, String scope) {
+        return "entryType=" + entryType + "|agent=" + agent + "|round=" + round
+                + "|priority=" + priority + "|scope=" + scope;
     }
 
-    private static MessageView handoff(String correlationId, ActorType actorType, String content) {
-        return new MessageView(null, null, "test", MessageType.HANDOFF,
-                content, correlationId, null, "human", null, actorType, null, null, 0);
-    }
-
-    private static MessageView event(ActorType actorType, String content) {
-        return new MessageView(null, null, "test", MessageType.EVENT,
-                content, null, null, null, null, actorType, null, null, 0);
-    }
-
-    // ── tests ─────────────────────────────────────────────────────────────────
+    // ── raise ─────────────────────────────────────────────────────────────────
 
     @Test
-    void identity_returnsEmptyState_andFreshInstanceEachCall() {
-        ReviewState s1 = proj.identity();
-        ReviewState s2 = proj.identity();
-        assertThat(s1.points()).isEmpty();
-        assertThat(s1.humanFlags()).isEmpty();
-        assertThat(s1).isNotSameAs(s2);
-    }
-
-    @Test
-    void apply_query_createsOpenPoint_humanMapsToRev() {
+    void raise_createsOpenPoint_revAgent_roundPopulated() {
         ReviewState s = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, "§3.2", "Point A."));
-        assertThat(s.points()).containsKey("R1");
-        ReviewPoint p = s.points().get("R1");
+                msg(MessageType.QUERY, "pt-1",
+                        ratefacts("raise", "REV", 1, "P1", "ISOLATED"),
+                        "This is the raise content."));
+        assertThat(s.points()).containsKey("pt-1");
+        ReviewPoint p = s.points().get("pt-1");
         assertThat(p.currentStatus()).isEqualTo(ReviewStatus.OPEN);
-        assertThat(p.classification().priority()).isEqualTo(Priority.P1);
         assertThat(p.thread()).hasSize(1);
         assertThat(p.thread().get(0).type()).isEqualTo(EntryType.RAISE);
         assertThat(p.thread().get(0).agent()).isEqualTo(AgentType.REV);
+        assertThat(p.thread().get(0).round()).isEqualTo(1);
+        assertThat(p.thread().get(0).content()).isEqualTo("This is the raise content.");
     }
 
     @Test
-    void apply_response_agree_transitionsToAgreed_agentMapsToImp() {
+    void raise_impAgent_mapsToIMP() {
+        ReviewState s = proj.apply(proj.identity(),
+                msg(MessageType.QUERY, "pt-2", ratefacts("raise", "IMP", 2, "P2", "SYSTEMIC"), "IMP point."));
+        assertThat(s.points().get("pt-2").thread().get(0).agent()).isEqualTo(AgentType.IMP);
+    }
+
+    // ── agree ─────────────────────────────────────────────────────────────────
+
+    @Test
+    void agree_transitionsToAgreed() {
         ReviewState s0 = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        ReviewState s1 = proj.apply(s0, respond("R1", ActorType.AGENT, "Answer."));
-        assertThat(s1.points().get("R1").currentStatus()).isEqualTo(ReviewStatus.AGREED);
-        assertThat(s1.points().get("R1").thread().get(1).agent()).isEqualTo(AgentType.IMP);
-        assertThat(s1.points().get("R1").thread().get(1).type()).isEqualTo(EntryType.AGREE);
+                msg(MessageType.QUERY, "pt-1", ratefacts("raise", "REV", 1, "P1", "ISOLATED"), "Issue."));
+        ReviewState s1 = proj.apply(s0,
+                msg(MessageType.DONE, "pt-1", ratefacts("agree", "IMP", 2), "Agreed."));
+        assertThat(s1.points().get("pt-1").currentStatus()).isEqualTo(ReviewStatus.AGREED);
+        assertThat(s1.points().get("pt-1").thread().get(1).type()).isEqualTo(EntryType.AGREE);
+        assertThat(s1.points().get("pt-1").thread().get(1).agent()).isEqualTo(AgentType.IMP);
     }
 
+    // ── dispute ───────────────────────────────────────────────────────────────
+
     @Test
-    void apply_response_qualify_transitionsToActive_stripsPrefix() {
+    void dispute_transitionsToDisputed_notDeclined() {
         ReviewState s0 = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        ReviewState s1 = proj.apply(s0, respond("R1", ActorType.AGENT, "[QUALIFY] Partial."));
-        assertThat(s1.points().get("R1").currentStatus()).isEqualTo(ReviewStatus.ACTIVE);
-        assertThat(s1.points().get("R1").thread().get(1).type()).isEqualTo(EntryType.QUALIFY);
-        assertThat(s1.points().get("R1").thread().get(1).content()).isEqualTo("Partial.");
+                msg(MessageType.QUERY, "pt-1", ratefacts("raise", "REV", 1, "P1", "ISOLATED"), "Issue."));
+        ReviewState s1 = proj.apply(s0,
+                msg(MessageType.DECLINE, "pt-1", ratefacts("dispute", "IMP", 2), "I disagree."));
+        assertThat(s1.points().get("pt-1").currentStatus()).isEqualTo(ReviewStatus.DISPUTED);
+        assertThat(s1.points().get("pt-1").thread().get(1).type()).isEqualTo(EntryType.DISPUTE);
     }
 
+    // ── qualify ───────────────────────────────────────────────────────────────
+
     @Test
-    void apply_decline_transitionsToDeclined() {
+    void qualify_transitionsToActive_entryTypeQualify() {
         ReviewState s0 = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        ReviewState s1 = proj.apply(s0, decline("R1", ActorType.AGENT, "Out of scope."));
-        assertThat(s1.points().get("R1").currentStatus()).isEqualTo(ReviewStatus.DECLINED);
-        assertThat(s1.points().get("R1").thread().get(1).type()).isEqualTo(EntryType.DECLINED);
+                msg(MessageType.QUERY, "pt-1", ratefacts("raise", "REV", 1, "P1", "ISOLATED"), "Issue."));
+        ReviewState s1 = proj.apply(s0,
+                msg(MessageType.RESPONSE, "pt-1", ratefacts("qualify", "IMP", 2), "Partially."));
+        assertThat(s1.points().get("pt-1").currentStatus()).isEqualTo(ReviewStatus.ACTIVE);
+        assertThat(s1.points().get("pt-1").thread().get(1).type()).isEqualTo(EntryType.QUALIFY);
     }
 
+    // ── counter ───────────────────────────────────────────────────────────────
+
     @Test
-    void apply_decline_nullCorrelationId_stateUnchanged_noLog() {
+    void counter_transitionsToActive_entryTypeCounter_distinctFromQualify() {
+        ReviewState s0 = proj.apply(proj.identity(),
+                msg(MessageType.QUERY, "pt-1", ratefacts("raise", "REV", 1, "P1", "ISOLATED"), "Issue."));
+        ReviewState s1 = proj.apply(s0,
+                msg(MessageType.RESPONSE, "pt-1", ratefacts("counter", "IMP", 2), "My counter."));
+        assertThat(s1.points().get("pt-1").currentStatus()).isEqualTo(ReviewStatus.ACTIVE);
+        assertThat(s1.points().get("pt-1").thread().get(1).type()).isEqualTo(EntryType.COUNTER);
+    }
+
+    // ── flag-human ────────────────────────────────────────────────────────────
+
+    @Test
+    void flagHuman_transitionsToPendingHuman_flagEntryRoundPopulated() {
+        ReviewState s0 = proj.apply(proj.identity(),
+                msg(MessageType.QUERY, "pt-1", ratefacts("raise", "REV", 1, "P1", "ISOLATED"), "Issue."));
+        ReviewState s1 = proj.apply(s0,
+                msg(MessageType.HANDOFF, "pt-1", ratefacts("flag-human", "REV", 3), "Human needed."));
+        assertThat(s1.points().get("pt-1").currentStatus()).isEqualTo(ReviewStatus.PENDING_HUMAN);
+        assertThat(s1.humanFlags()).hasSize(1);
+        assertThat(s1.humanFlags().get(0).round()).isEqualTo(3);
+        assertThat(s1.humanFlags().get(0).content()).isEqualTo("Human needed.");
+    }
+
+    // ── edge cases ────────────────────────────────────────────────────────────
+
+    @Test
+    void unknownEntryType_stateUnchanged() {
         ReviewState s0 = proj.identity();
-        ReviewState s1 = proj.apply(s0, decline(null, ActorType.AGENT, "Out of scope."));
-        assertThat(s1).isSameAs(s0);
-    }
-
-    @Test
-    void apply_decline_unknownCorrelationId_stateUnchanged() {
-        ReviewState s0 = proj.identity();
-        ReviewState s1 = proj.apply(s0, decline("UNKNOWN", ActorType.AGENT, "Out of scope."));
+        ReviewState s1 = proj.apply(s0,
+                msg(MessageType.QUERY, "pt-1", "entryType=unknown|agent=REV|round=1", "?"));
         assertThat(s1.points()).isEmpty();
     }
 
     @Test
-    void apply_decline_nullContent_threadEntryIsEmptyString() {
+    void missingAgent_throwsIAE() {
         ReviewState s0 = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        ReviewState s1 = proj.apply(s0, new MessageView(null, null, "test", MessageType.DECLINE,
-                null, "R1", null, null, null, ActorType.AGENT, null, null, 0));
-        assertThat(s1.points().get("R1").thread().get(1).content()).isNotNull().isEqualTo("");
+                msg(MessageType.QUERY, "pt-1", ratefacts("raise", "REV", 1, "P1", "ISOLATED"), "Issue."));
+        assertThatThrownBy(() -> proj.apply(s0,
+                msg(MessageType.DONE, "pt-1", "entryType=agree|round=2", "Agreed.")))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void apply_handoff_nullContent_doesNotProduceNullInThread() {
-        ReviewState s0 = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        ReviewState s1 = proj.apply(s0, new MessageView(null, null, "test", MessageType.HANDOFF,
-                null, "R1", null, "human", null, ActorType.AGENT, null, null, 0));
-        assertThat(s1.points().get("R1").thread().get(1).content()).isNotNull();
-        assertThat(s1.humanFlags().get(0).content()).isNotNull();
-    }
-
-    @Test
-    void apply_handoff_transitionsToPendingHuman() {
-        ReviewState s0 = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        ReviewState s1 = proj.apply(s0, handoff("R1", ActorType.AGENT, "Needs human."));
-        assertThat(s1.points().get("R1").currentStatus()).isEqualTo(ReviewStatus.PENDING_HUMAN);
-        assertThat(s1.humanFlags()).hasSize(1);
-    }
-
-    @Test
-    void apply_event_isNoOp() {
-        ReviewState s0 = proj.identity();
-        assertThat(proj.apply(s0, event(ActorType.AGENT, "Internal.")).points()).isEmpty();
+    void nullActorType_doesNotThrow() {
+        // DebateChannelProjection uses artefactRefs.agent — actorType is irrelevant
+        ReviewState s = proj.apply(proj.identity(),
+                new MessageView(null, null, "test", MessageType.QUERY,
+                        "Content.", "pt-1", null, null,
+                        ratefacts("raise", "REV", 1, "P1", "ISOLATED"),
+                        null, null, null, 0));
+        assertThat(s.points()).containsKey("pt-1");
     }
 
     @Test
     void apply_doesNotMutateInputState() {
-        ReviewState initial = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        proj.apply(initial, respond("R1", ActorType.AGENT, "A."));
-        assertThat(initial.points().get("R1").currentStatus()).isEqualTo(ReviewStatus.OPEN);
-    }
-
-    @Test
-    void agentType_nullActorType_throwsIAE() {
-        ReviewState s0 = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        assertThatThrownBy(() -> proj.apply(s0, new MessageView(null, null, "test",
-                MessageType.RESPONSE, "A.", "R1", null, null, null, null, null, null, 0)))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void agentType_systemActorType_throwsIAE() {
-        ReviewState s0 = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        assertThatThrownBy(() -> proj.apply(s0, new MessageView(null, null, "test",
-                MessageType.RESPONSE, "A.", "R1", null, null, null, ActorType.SYSTEM, null, null, 0)))
-                .isInstanceOf(IllegalArgumentException.class);
+        ReviewState after_raise = proj.apply(proj.identity(),
+                msg(MessageType.QUERY, "pt-1", ratefacts("raise", "REV", 1, "P1", "ISOLATED"), "Issue."));
+        proj.apply(after_raise,
+                msg(MessageType.DONE, "pt-1", ratefacts("agree", "IMP", 2), "Done."));
+        assertThat(after_raise.points().get("pt-1").currentStatus()).isEqualTo(ReviewStatus.OPEN);
     }
 
     @Test
@@ -177,12 +163,5 @@ class DebateChannelProjectionTest {
     void render_emptyResult_returnsNonBlankSentinel() {
         ProjectionResult<ReviewState> empty = new ProjectionResult<>(proj.identity(), null);
         assertThat(proj.render(empty)).isNotBlank();
-    }
-
-    @Test
-    void render_nonEmptyResult_returnsNonBlankString() {
-        ReviewState s = proj.apply(proj.identity(),
-                query("R1", ActorType.HUMAN, Priority.P1, Scope.ISOLATED, null, "Q?"));
-        assertThat(proj.render(new ProjectionResult<>(s, 1L))).isNotBlank();
     }
 }

@@ -226,7 +226,7 @@ class DraftHouseMcpToolsTest {
         assertThat(d.type()).isEqualTo(MessageType.QUERY);
         assertThat(d.channelId()).isEqualTo(channelId);
         assertThat(d.content()).isEqualTo("Is this revision clear?");
-        assertThat(d.sender()).isEqualTo(DraftHouseMcpTools.HUMAN_INSTANCE_ID);
+        assertThat(d.sender()).isEqualTo(DraftHouseInstances.HUMAN_INSTANCE_ID);
         assertThat(d.correlationId()).isNotBlank();
     }
 
