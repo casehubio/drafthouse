@@ -417,13 +417,40 @@ Key architectural decisions shipped:
 - `EntryType.name()` encoding standard — all `entryType` values in META headers use the Java enum name (uppercase); `DebateChannelProjection.apply()` dispatches via `EntryType.valueOf()` switch (type-safe, compiler-exhaustive)
 - `ReviewState` extended with `memos` (List<RoundMemo>) and `subTaskFindings` (Map<String,SubTaskFinding>); `SummaryRenderer` renders findings with `⊕` provenance marker (fresh context) and memos in "Agent Memos" section
 - Pattern extraction tracked in #42 (channel-reactive agent — devtown confirmed as second consumer)
-- E2E test deferred pending #44 (pre-existing Quarkus CDI augmentation failure)
+- E2E test (`SubAgentE2ETest`) shipped in Chapter 7 once #44 CDI fix landed
 
 **Layer Impact**
 | Layer | Delta |
 |---|---|
 | Debate Channel | High |
 | Pattern types | Medium |
+
+---
+
+#### Chapter 7 — Restart-from-Round + CDI Fix
+
+**Journey:** Review | **Sequence:** 7 of 5 | **Status:** ✅
+**Delivered:** 2026-06-09 | **Issues:** #40 #43 #44 #47 | **Blog:** —
+
+**What this delivers**
+
+Round-bounded session restart and CDI augmentation fix. Agents can branch a debate session from any prior round — either resuming an expired session (pass the last round) or redoing from an earlier point (pass an earlier round). The original session stays live. Sub-agent findings filter correctly by round after a fix to `request_subagent` and `AbstractDebateSubAgentHandler.buildResponse`.
+
+Key architectural decisions shipped:
+- `RoundBoundedProjection` static inner class of `DebateChannelProjection` — pure `ChannelProjection<ReviewState>` decorator; constructed by `DebateMcpTools` (which owns `projectionService`); skips messages where `round > maxRound`; no service dependencies added to the fold bean
+- `DebateProtocol.parseRound(Map)` extracted as package-public static — replaces the private duplicate in `DebateChannelProjection`; shared by the outer fold and the inner decorator
+- RESTART_CONTEXT provenance marker — DHMETA-structured (`entryType=RESTART_CONTEXT`) but NOT an `EntryType` enum constant; `DebateChannelProjection.apply()` intercepts by string check before `EntryType.valueOf()`, avoiding `SummaryRenderer`'s exhaustive switch breakage
+- `request_subagent` tool now requires `round` parameter — encoded as `|round=N` in the SUB_TASK_REQUEST header; `AbstractDebateSubAgentHandler.buildResponse` propagates it into SUB_TASK_FINDING so findings filter correctly in bounded projections
+- Two new MCP tools: `get_debate_summary_at_round(debateSessionId, round)` and `restart_from_round(debateSessionId, round)` with full failure cleanup, `round ≥ 1` enforcement, and empty-state sentinel handling
+- `casehub-platform` added as `runtime` scope to `server/runtime/pom.xml` — fixes pre-existing Quarkus CDI augmentation failure (#44); provides `MockCurrentPrincipal @DefaultBean` for Qhorus JPA store injection points
+- `SubAgentE2ETest` — full async dispatch chain E2E test in `@QuarkusTest`; Awaitility covers `@ObservesAsync` gap; `MockDebateAgentProvider` displaces LangChain4j
+- `SummaryRendererTest` extended with 7 coverage tests for rendering paths added in Chapter 6 (PENDING/ERROR/COMPLETE findings, point-anchored vs standalone, memo section, null-finding guard)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| Debate Channel | High |
+| CDI wiring | Medium |
 
 ---
 
@@ -711,7 +738,7 @@ Not closed here: `ProjectionRenderer` SPI (`SummaryRenderer` renders locally; qh
 
 **Before:** Two agents (REV, IMP) have no write path into the Qhorus channel. `DebateChannelProjection` (now renamed `ReviewChannelProjection`) folds review Q&A state but cannot distinguish two `ActorType.AGENT` actors.
 
-**After:** `DebateMcpTools` with 6 tools (`start_debate`, `raise_point`, `respond_to`, `flag_human`, `get_debate_summary`, `end_debate`). `DebateChannelBackend` (no-op) fences debate channels from the LLM backend. `DebateChannelProjection` folds `DebateProtocol.META_SENTINEL` content headers into `ReviewState` with correct REV/IMP attribution and `ReviewStatus.DISPUTED` for active disputes.
+**After:** `DebateMcpTools` with 6 tools at this layer (`start_debate`, `raise_point`, `respond_to`, `flag_human`, `get_debate_summary`, `end_debate`; extended to 10 tools in Chapters 6–7). `DebateChannelBackend` (no-op) fences debate channels from the LLM backend. `DebateChannelProjection` folds `DebateProtocol.META_SENTINEL` content headers into `ReviewState` with correct REV/IMP attribution and `ReviewStatus.DISPUTED` for active disputes.
 
 What this layer adds:
 - **`DebateChannelProjection` — new class** — `RenderableProjection<ReviewState>` dispatching on `DebateProtocol.META_SENTINEL + entryType=...` prefix in message content; `META.agent` for REV/IMP classification; `META.round` populates `ThreadEntry.round` and `FlagEntry.round`
@@ -728,7 +755,7 @@ Closed in follow-up session (#33 #38 #39): instance deregistration on session en
 
 | Gap | What breaks without it | Closed by |
 |---|---|---|
-| No debate write path | Agents cannot post to the debate channel | `DebateMcpTools` with 6 MCP tools |
+| No debate write path | Agents cannot post to the debate channel | `DebateMcpTools` (6 tools at this layer; 10 total after Chapters 6–7) |
 | `actorType` misclassification | Both REV and IMP are `ActorType.AGENT`; old heuristic produced wrong attribution | `META.agent` field in content header |
 | Terminal `DECLINED` for dispute | Disputed points rendered as closed (🚫, strikethrough) while still live | `ReviewStatus.DISPUTED` (⚡, no strikethrough) |
 | LLM backend on debate channel | `ReviewerChannelBackendFactory` would trigger LLM for every QUERY (raise_point) | `DebateChannelBackend` registration fence + guard in `ReviewerChannelBackendFactory` |
@@ -744,7 +771,7 @@ Closed in follow-up session (#33 #38 #39): instance deregistration on session en
 - `server/runtime/src/main/java/io/casehub/drafthouse/debate/ReviewChannelProjection.java` — `ChannelProjection<ReviewState>`; DONE→AGREE, RESPONSE→QUALIFY, DECLINE→DECLINED, HANDOFF→PENDING_HUMAN dispatch (renamed from `DebateChannelProjection`)
 - `server/runtime/src/main/java/io/casehub/drafthouse/DebateChannelBackend.java` — no-op backend; `BACKEND_ID="drafthouse-debate"`
 - `server/runtime/src/main/java/io/casehub/drafthouse/DebateChannelBackendFactory.java` — observes `ChannelInitialisedEvent` for `drafthouse/debate/` prefix
-- `server/runtime/src/main/java/io/casehub/drafthouse/DebateMcpTools.java` — 6 MCP tools; `sender()` switch; session precondition; `DebateProtocol.META_SENTINEL` encoding; instance deregistration on end/partial-failure
+- `server/runtime/src/main/java/io/casehub/drafthouse/DebateMcpTools.java` — 6 MCP tools at this layer (10 total after Chapters 6–7); `sender()` switch; session precondition; `DebateProtocol.META_SENTINEL` encoding; instance deregistration on end/partial-failure
 - `server/runtime/src/main/java/io/casehub/drafthouse/DraftHouseInstances.java` — `HUMAN_INSTANCE_ID` constant
 
 #### Key wiring
