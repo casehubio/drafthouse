@@ -402,6 +402,31 @@ Key architectural decisions shipped:
 
 ---
 
+#### Chapter 6 — Sub-Agent Architecture
+
+**Journey:** Review | **Sequence:** 6 of 5 | **Status:** ✅
+**Delivered:** 2026-06-09 | **Issues:** #26 | **Blog:** `wksp/blog/2026-06-09-mdp11-the-handler-that-knew-nothing.md`
+
+**What this delivers**
+
+Focused sub-agent spawning within debate sessions. Main agents (REV/IMP) hold accumulated context across rounds; sub-agents receive deliberately minimal, fresh-context input for one analytical task (VERIFY, ARBITRATE, DEEP_ANALYSIS, CONSISTENCY_CHECK, NEUTRAL_SUMMARY, CUSTOM) and return findings posted back to the debate channel with provenance markers. Reasoning memos per round externalise working hypotheses for cold-session continuity.
+
+Key architectural decisions shipped:
+- `ChannelAgentHandler` SPI + `ChannelAgentDispatcher @ObservesAsync` — channel-reactive agent pattern: `DebateChannelBackend.post()` fires `ChannelAgentRequest` CDI event; dispatcher routes to the matching handler bean, invokes `DebateAgentProvider`, posts `SUB_TASK_FINDING` or sanitized `SUB_TASK_ERROR`
+- `AbstractDebateSubAgentHandler` — shared `handles()` (SubTaskType match from META) + `buildResponse()` (SUB_TASK_FINDING encoding); six concrete handler beans implement only `taskType()` + `prepareTask()`
+- `EntryType.name()` encoding standard — all `entryType` values in META headers use the Java enum name (uppercase); `DebateChannelProjection.apply()` dispatches via `EntryType.valueOf()` switch (type-safe, compiler-exhaustive)
+- `ReviewState` extended with `memos` (List<RoundMemo>) and `subTaskFindings` (Map<String,SubTaskFinding>); `SummaryRenderer` renders findings with `⊕` provenance marker (fresh context) and memos in "Agent Memos" section
+- Pattern extraction tracked in #42 (channel-reactive agent — devtown confirmed as second consumer)
+- E2E test deferred pending #44 (pre-existing Quarkus CDI augmentation failure)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| Debate Channel | High |
+| Pattern types | Medium |
+
+---
+
 ### §9.4 Layer Entries
 
 ---
