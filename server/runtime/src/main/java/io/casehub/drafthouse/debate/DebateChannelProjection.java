@@ -1,6 +1,7 @@
 package io.casehub.drafthouse.debate;
 
 import io.casehub.qhorus.api.message.MessageView;
+import io.casehub.qhorus.api.spi.ChannelProjection;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.api.spi.RenderableProjection;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -37,6 +38,11 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
         String entryTypeStr = meta.get("entryType");
         if (entryTypeStr == null) return state;
 
+        // RESTART_CONTEXT is infrastructure provenance — not a domain EntryType.
+        // Intercepted here to avoid polluting the EntryType enum and breaking
+        // SummaryRenderer's exhaustive switch.
+        if ("RESTART_CONTEXT".equals(entryTypeStr)) return state;
+
         EntryType entryType;
         try {
             entryType = EntryType.valueOf(entryTypeStr);
@@ -65,6 +71,41 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
         return result.isEmpty() ? "No debate activity yet." : renderer.render(result.state());
     }
 
+    // ── RoundBoundedProjection ────────────────────────────────────────────────
+
+    /**
+     * Decorator that skips messages whose {@code round} META field exceeds
+     * {@code maxRound}. Keeps {@link DebateChannelProjection} a pure fold —
+     * no service dependencies are added to it.
+     *
+     * <p>Sub-task findings filter correctly only when their {@code round} field
+     * is populated — which requires the fix to {@code request_subagent} that
+     * encodes {@code |round=N} in the {@code SUB_TASK_REQUEST} header, propagated
+     * by {@code AbstractDebateSubAgentHandler.buildResponse}.
+     */
+    public static class RoundBoundedProjection implements ChannelProjection<ReviewState> {
+
+        private final int maxRound;
+        private final DebateChannelProjection delegate;
+
+        public RoundBoundedProjection(final int maxRound, final DebateChannelProjection delegate) {
+            this.maxRound = maxRound;
+            this.delegate = delegate;
+        }
+
+        @Override
+        public ReviewState identity() {
+            return delegate.identity();
+        }
+
+        @Override
+        public ReviewState apply(final ReviewState state, final MessageView message) {
+            final int round = DebateProtocol.parseRound(DebateProtocol.parseMeta(message.content()));
+            if (round > maxRound) return state;
+            return delegate.apply(state, message);
+        }
+    }
+
     // ── fold handlers ─────────────────────────────────────────────────────────
 
     private ReviewState handleRaise(ReviewState state, MessageView message, Map<String, String> meta) {
@@ -75,7 +116,7 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
         String location = meta.get("location");
         var classification = new PointClassification(priority, scope,
                 location != null && !location.isBlank() ? location : null);
-        int round = parseRound(meta);
+        int round = DebateProtocol.parseRound(meta);
         var thread = new ArrayList<ThreadEntry>();
         thread.add(new ThreadEntry(entryId, agentType(meta), round, EntryType.RAISE, DebateProtocol.bodyContent(message.content())));
         var point = new ReviewPoint(entryId, classification, thread, ReviewStatus.OPEN);
@@ -104,7 +145,7 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
     private ReviewState handleFlagHuman(ReviewState state, MessageView message, Map<String, String> meta) {
         String targetId = message.correlationId();
         String content = DebateProtocol.bodyContent(Objects.requireNonNullElse(message.content(), ""));
-        int round = parseRound(meta);
+        int round = DebateProtocol.parseRound(meta);
         AgentType agent = agentType(meta);
         var points = new LinkedHashMap<>(state.points());
         if (targetId != null && points.containsKey(targetId)) {
@@ -131,7 +172,7 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
             return state;
         }
         ReviewPoint existing = state.points().get(targetId);
-        int round = parseRound(meta);
+        int round = DebateProtocol.parseRound(meta);
         var thread = new ArrayList<>(existing.thread());
         thread.add(new ThreadEntry(null, agentType(meta), round, type, DebateProtocol.bodyContent(message.content())));
         var updated = new ReviewPoint(existing.id(), existing.classification(), thread, newStatus);
@@ -151,12 +192,6 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
         };
     }
 
-    private int parseRound(Map<String, String> meta) {
-        String r = meta.get("round");
-        if (r == null) return 0;
-        try { return Integer.parseInt(r); } catch (NumberFormatException e) { return 0; }
-    }
-
     private Priority parsePriority(String s) {
         try { return Priority.valueOf(s.toUpperCase()); } catch (Exception e) { return Priority.P3; }
     }
@@ -167,7 +202,7 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
 
     private ReviewState handleMemo(ReviewState state, MessageView message, Map<String, String> meta) {
         String agent = meta.getOrDefault("agent", "UNKNOWN");
-        int round = parseRound(meta);
+        int round = DebateProtocol.parseRound(meta);
         String content = DebateProtocol.bodyContent(message.content());
         var memos = new ArrayList<>(state.memos());
         memos.add(new RoundMemo(agent, round, content));

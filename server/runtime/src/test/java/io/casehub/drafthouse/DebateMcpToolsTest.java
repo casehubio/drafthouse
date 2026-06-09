@@ -377,4 +377,231 @@ class DebateMcpToolsTest {
         verify(instanceService).deregister("drafthouse-rev-" + debateSessionId);
         verify(instanceService).deregister("drafthouse-imp-" + debateSessionId);
     }
+
+    // ── request_subagent (round param) ────────────────────────────────────────
+
+    @Test
+    void requestSubagent_encodesRoundInContent() {
+        UUID channelId = stubChannel.id;
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionFor(channelId)));
+
+        tools.requestSubagent(channelId.toString(), "REV", "VERIFY", "pt-1", 3, null);
+
+        ArgumentCaptor<MessageDispatch> cap = ArgumentCaptor.forClass(MessageDispatch.class);
+        verify(messageService).dispatch(cap.capture());
+        assertThat(cap.getValue().content()).contains("entryType=SUB_TASK_REQUEST");
+        assertThat(cap.getValue().content()).contains("round=3");
+    }
+
+    @Test
+    void requestSubagent_encodesRoundAndPointId() {
+        UUID channelId = stubChannel.id;
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionFor(channelId)));
+
+        tools.requestSubagent(channelId.toString(), "IMP", "ARBITRATE", "pt-42", 7, null);
+
+        ArgumentCaptor<MessageDispatch> cap = ArgumentCaptor.forClass(MessageDispatch.class);
+        verify(messageService).dispatch(cap.capture());
+        String content = cap.getValue().content();
+        assertThat(content).contains("round=7");
+        assertThat(content).contains("pointId=pt-42");
+    }
+
+    // ── get_debate_summary_at_round ───────────────────────────────────────────
+
+    @Test
+    void getDebateSummaryAtRound_rejectsRoundZero() {
+        UUID channelId = stubChannel.id;
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionFor(channelId)));
+
+        String result = tools.getDebateSummaryAtRound(channelId.toString(), 0);
+        assertThat(result).startsWith("error:");
+    }
+
+    @Test
+    void getDebateSummaryAtRound_rejectsNegativeRound() {
+        UUID channelId = stubChannel.id;
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionFor(channelId)));
+
+        String result = tools.getDebateSummaryAtRound(channelId.toString(), -1);
+        assertThat(result).startsWith("error:");
+    }
+
+    @Test
+    void getDebateSummaryAtRound_emptyBoundedState_returnsNoneMessage() {
+        UUID channelId = stubChannel.id;
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionFor(channelId)));
+        ReviewState empty = emptyState();
+        // non-null lastMessageId so isEmpty() == false — but state has no content
+        when(projectionService.project(eq(channelId), any()))
+                .thenReturn(new ProjectionResult<>(empty, 99L));
+
+        String result = tools.getDebateSummaryAtRound(channelId.toString(), 2);
+        assertThat(result).contains("No debate activity up to round 2");
+    }
+
+    @Test
+    void getDebateSummaryAtRound_delegatesToProjectionService() {
+        UUID channelId = stubChannel.id;
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionFor(channelId)));
+        when(projectionService.project(eq(channelId), any()))
+                .thenReturn(new ProjectionResult<>(emptyState(), null));
+
+        tools.getDebateSummaryAtRound(channelId.toString(), 2);
+
+        verify(projectionService).project(eq(channelId), any());
+    }
+
+    @Test
+    void getDebateSummaryAtRound_unknownSession_returnsError() {
+        when(registry.find(any(UUID.class))).thenReturn(Optional.empty());
+        String result = tools.getDebateSummaryAtRound(UUID.randomUUID().toString(), 2);
+        assertThat(result).startsWith("error:");
+    }
+
+    // ── restart_from_round ────────────────────────────────────────────────────
+
+    @Test
+    void restartFromRound_rejectsRoundZero() {
+        UUID channelId = stubChannel.id;
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionFor(channelId)));
+
+        String result = tools.restartFromRound(channelId.toString(), 0);
+        assertThat(result).startsWith("error:");
+    }
+
+    @Test
+    void restartFromRound_rejectsNegativeRound() {
+        UUID channelId = stubChannel.id;
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionFor(channelId)));
+
+        String result = tools.restartFromRound(channelId.toString(), -1);
+        assertThat(result).startsWith("error:");
+    }
+
+    @Test
+    void restartFromRound_createsNewSession_responseContainsBothSessionIds() {
+        UUID originalId = stubChannel.id;
+        when(registry.find(originalId)).thenReturn(Optional.of(sessionFor(originalId)));
+        when(projectionService.project(eq(originalId), any()))
+                .thenReturn(new ProjectionResult<>(emptyState(), null));
+        Channel newCh = newChannel();
+        when(channelService.create(anyString(), anyString(), eq(ChannelSemantic.APPEND), isNull()))
+                .thenReturn(newCh);
+
+        String result = tools.restartFromRound(originalId.toString(), 2);
+
+        assertThat(result).contains("newDebateSessionId");
+        assertThat(result).contains("originalDebateSessionId");
+        assertThat(result).contains(originalId.toString());
+        assertThat(result).contains(newCh.id.toString());
+    }
+
+    @Test
+    void restartFromRound_registersNewSession_notOriginal() {
+        UUID originalId = stubChannel.id;
+        when(registry.find(originalId)).thenReturn(Optional.of(sessionFor(originalId)));
+        when(projectionService.project(eq(originalId), any()))
+                .thenReturn(new ProjectionResult<>(emptyState(), null));
+        Channel newCh = newChannel();
+        when(channelService.create(anyString(), anyString(), eq(ChannelSemantic.APPEND), isNull()))
+                .thenReturn(newCh);
+
+        tools.restartFromRound(originalId.toString(), 2);
+
+        ArgumentCaptor<DebateSession> cap = ArgumentCaptor.forClass(DebateSession.class);
+        verify(registry).put(cap.capture());
+        assertThat(cap.getValue().channelId()).isEqualTo(newCh.id);
+        assertThat(cap.getValue().channelId()).isNotEqualTo(originalId);
+    }
+
+    @Test
+    void restartFromRound_postsRestartContextMarkerToNewChannel() {
+        UUID originalId = stubChannel.id;
+        when(registry.find(originalId)).thenReturn(Optional.of(sessionFor(originalId)));
+        when(projectionService.project(eq(originalId), any()))
+                .thenReturn(new ProjectionResult<>(emptyState(), null));
+        Channel newCh = newChannel();
+        when(channelService.create(anyString(), anyString(), eq(ChannelSemantic.APPEND), isNull()))
+                .thenReturn(newCh);
+
+        tools.restartFromRound(originalId.toString(), 2);
+
+        ArgumentCaptor<MessageDispatch> cap = ArgumentCaptor.forClass(MessageDispatch.class);
+        verify(messageService, atLeastOnce()).dispatch(cap.capture());
+        assertThat(cap.getAllValues()).anyMatch(d ->
+                newCh.id.equals(d.channelId())
+                && d.content() != null
+                && d.content().contains("RESTART_CONTEXT")
+                && d.content().contains("originChannelId=" + originalId)
+                && d.content().contains("originRound=2"));
+    }
+
+    @Test
+    void restartFromRound_emptyBoundedState_summaryContainsNoneMessage() {
+        UUID originalId = stubChannel.id;
+        when(registry.find(originalId)).thenReturn(Optional.of(sessionFor(originalId)));
+        when(projectionService.project(eq(originalId), any()))
+                .thenReturn(new ProjectionResult<>(emptyState(), null));
+        Channel newCh = newChannel();
+        when(channelService.create(anyString(), anyString(), eq(ChannelSemantic.APPEND), isNull()))
+                .thenReturn(newCh);
+
+        String result = tools.restartFromRound(originalId.toString(), 2);
+        assertThat(result).contains("No debate activity up to round 2");
+    }
+
+    @Test
+    void restartFromRound_failure_cleansUpNewChannel() {
+        UUID originalId = stubChannel.id;
+        when(registry.find(originalId)).thenReturn(Optional.of(sessionFor(originalId)));
+        when(projectionService.project(eq(originalId), any()))
+                .thenReturn(new ProjectionResult<>(emptyState(), null));
+        Channel newCh = newChannel();
+        when(channelService.create(anyString(), anyString(), eq(ChannelSemantic.APPEND), isNull()))
+                .thenReturn(newCh);
+        doThrow(new RuntimeException("marker post failed")).when(messageService).dispatch(any());
+
+        String result = tools.restartFromRound(originalId.toString(), 2);
+
+        assertThat(result).startsWith("error:");
+        verify(channelService).delete(eq(newCh.id), eq(true));
+    }
+
+    @Test
+    void restartFromRound_doesNotTouchOriginalSession() {
+        UUID originalId = stubChannel.id;
+        when(registry.find(originalId)).thenReturn(Optional.of(sessionFor(originalId)));
+        when(projectionService.project(eq(originalId), any()))
+                .thenReturn(new ProjectionResult<>(emptyState(), null));
+        Channel newCh = newChannel();
+        when(channelService.create(anyString(), anyString(), eq(ChannelSemantic.APPEND), isNull()))
+                .thenReturn(newCh);
+
+        tools.restartFromRound(originalId.toString(), 2);
+
+        verify(registry, never()).remove(originalId);
+        verify(instanceService, never()).deregister(contains(originalId.toString()));
+    }
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    private DebateSession sessionFor(UUID channelId) {
+        return new DebateSession(channelId, channelId.toString(),
+                "drafthouse/debate/d-" + channelId,
+                "drafthouse-rev-" + channelId,
+                "drafthouse-imp-" + channelId,
+                "spec.md");
+    }
+
+    private static ReviewState emptyState() {
+        return new ReviewState(Map.of(), List.of(), List.of(), Map.of());
+    }
+
+    private static Channel newChannel() {
+        Channel ch = new Channel();
+        ch.id = UUID.randomUUID();
+        ch.name = "drafthouse/debate/d-new-" + ch.id;
+        return ch;
+    }
 }

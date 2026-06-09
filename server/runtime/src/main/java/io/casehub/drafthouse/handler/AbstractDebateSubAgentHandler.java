@@ -51,10 +51,12 @@ abstract class AbstractDebateSubAgentHandler implements ChannelAgentHandler {
         String agent = meta.getOrDefault("agent", "UNKNOWN");
         String pointId = meta.get("pointId");
         Long inReplyTo = messageService.findByCorrelationId(subTaskId).map(m -> m.id).orElse(null);
+        String round = meta.getOrDefault("round", "0");
         String encoded = DebateProtocol.META_SENTINEL
                 + "entryType=SUB_TASK_FINDING|subTaskId=" + subTaskId
                 + "|taskType=" + taskType().name()
                 + "|agent=" + agent
+                + "|round=" + round
                 + (pointId != null ? "|pointId=" + pointId : "")
                 + "\n\n" + llmOutput;
         return MessageDispatch.builder()

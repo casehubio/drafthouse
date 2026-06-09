@@ -28,6 +28,15 @@
       <version>${project.version}</version>
     </dependency>
 
+    <!-- casehub-platform — provides MockCurrentPrincipal @DefaultBean required by Qhorus JPA stores.
+         Must be runtime scope in application modules with quarkus:build goal per PLATFORM.md. -->
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform</artifactId>
+      <version>${casehub.platform.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
     <!-- Qhorus — channels, typed messages, commitment tracking, shared data.
          Brings quarkus-flyway and db/migration/qhorus classpath entries transitively;
          all qhorus schema migrations are owned by casehub-qhorus, not DraftHouse. -->

@@ -21,6 +21,8 @@ import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.message.ProjectionService;
 import io.casehub.drafthouse.debate.DebateChannelProjection;
 import io.casehub.drafthouse.debate.DebateProtocol;
+import io.casehub.drafthouse.debate.ReviewState;
+import io.casehub.drafthouse.debate.SummaryRenderer;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 
@@ -310,6 +312,7 @@ public class DebateMcpTools {
             @ToolArg(description = "Your agent role: REV or IMP") String agentRole,
             @ToolArg(description = "Sub-task type") String taskType,
             @ToolArg(description = "pointId from raise_point. Null for NEUTRAL_SUMMARY or CUSTOM.") String pointId,
+            @ToolArg(description = "Current debate round number") int round,
             @ToolArg(description = "For CUSTOM: full context. For CONSISTENCY_CHECK: proposed resolution. Null otherwise.") String customInput) {
         try {
             DebateSession session = resolveSession(debateSessionId);
@@ -321,7 +324,8 @@ public class DebateMcpTools {
                     .append("entryType=SUB_TASK_REQUEST")
                     .append("|agent=").append(agentRole)
                     .append("|taskType=").append(Objects.requireNonNullElse(taskType, "CUSTOM"))
-                    .append("|subTaskId=").append(subTaskId);
+                    .append("|subTaskId=").append(subTaskId)
+                    .append("|round=").append(round);
             if (pointId != null && !pointId.isBlank()) header.append("|pointId=").append(pointId);
             String encoded = header + "\n\n" + Objects.requireNonNullElse(customInput, "");
             messageService.dispatch(MessageDispatch.builder()
@@ -339,7 +343,136 @@ public class DebateMcpTools {
         }
     }
 
+    @Tool(name = "get_debate_summary_at_round",
+          description = "Get the debate summary as it stood at the end of round N. Only messages with "
+                  + "round ≤ N are included. Use to preview a prior state before restart_from_round, "
+                  + "or to inspect any round on a live session. "
+                  + "Note: always use the ORIGINAL session's ID to inspect prior rounds — a restarted "
+                  + "session's channel contains no prior debate content.")
+    public String getDebateSummaryAtRound(
+            @ToolArg(description = "debateSessionId returned by start_debate") String debateSessionId,
+            @ToolArg(description = "Maximum round to include (must be ≥ 1)") int round) {
+        if (round < 1) return "error: round must be ≥ 1 (got " + round + ")";
+        DebateSession session = resolveSession(debateSessionId);
+        if (session == null) return sessionError(debateSessionId);
+        var bounded = new DebateChannelProjection.RoundBoundedProjection(round, debateProjection);
+        var result = projectionService.project(session.channelId(), bounded);
+        return renderBounded(result.state(), round);
+    }
+
+    @Tool(name = "restart_from_round",
+          description = "Create a new debate session branching from the state at round N. "
+                  + "The new session starts with the debate history up to and including round N "
+                  + "as its bootstrap context. Rounds after N from the original are not visible "
+                  + "in the new session. Sub-agent findings from rounds ≤ N are included; "
+                  + "findings from later rounds remain in the original session only. "
+                  + "The original session stays live — call end_debate on originalDebateSessionId "
+                  + "when done with it.")
+    public String restartFromRound(
+            @ToolArg(description = "debateSessionId of the original session") String debateSessionId,
+            @ToolArg(description = "Branch from this round's state (must be ≥ 1). "
+                    + "Pass the last completed round to resume; pass an earlier round to redo from there.") int round) {
+        if (round < 1) return "error: round must be ≥ 1 (got " + round + ")";
+
+        DebateSession original = resolveSession(debateSessionId);
+        if (original == null) return sessionError(debateSessionId);
+
+        // Bounded projection for summary and finding counts
+        var bounded = new DebateChannelProjection.RoundBoundedProjection(round, debateProjection);
+        var boundedResult = projectionService.project(original.channelId(), bounded);
+        var fullResult = projectionService.project(original.channelId(), debateProjection);
+
+        String summary = renderBounded(boundedResult.state(), round);
+        int findingsIncluded = boundedResult.state().subTaskFindings().size();
+        int findingsInOriginalOnly = fullResult.state().subTaskFindings().size() - findingsIncluded;
+        int pointCount = boundedResult.state().points().size();
+
+        // Create new session (same pattern as start_debate)
+        String debateSlug = "d-" + UUID.randomUUID();
+        String channelName = "drafthouse/debate/" + debateSlug;
+        String newRevId = null;
+        String newImpId = null;
+        Channel newChannel = null;
+        try {
+            newChannel = channelService.create(channelName, "DraftHouse debate session (restarted from round " + round + ")",
+                    ChannelSemantic.APPEND, null);
+            String newSessionId = newChannel.id.toString();
+            newRevId = "drafthouse-rev-" + newSessionId;
+            newImpId = "drafthouse-imp-" + newSessionId;
+
+            instanceService.register(newRevId, "DraftHouse debate reviewer " + newSessionId,
+                    List.of("document-debate-rev"));
+            instanceService.register(newImpId, "DraftHouse debate implementer " + newSessionId,
+                    List.of("document-debate-imp"));
+
+            DebateSession newSession = new DebateSession(
+                    newChannel.id, newSessionId, newChannel.name, newRevId, newImpId, original.specPath());
+            registry.put(newSession);
+            channelGateway.initChannel(newChannel.id, new ChannelRef(newChannel.id, newChannel.name));
+
+            // Post RESTART_CONTEXT provenance marker — DHMETA structured but not an EntryType enum constant.
+            // DebateChannelProjection.apply() intercepts this by string check before EntryType.valueOf().
+            String markerContent = DebateProtocol.META_SENTINEL
+                    + "entryType=RESTART_CONTEXT"
+                    + "|originChannelId=" + original.channelId()
+                    + "|originRound=" + round
+                    + "\n\n" + summary;
+            messageService.dispatch(MessageDispatch.builder()
+                    .channelId(newChannel.id)
+                    .sender(newRevId)
+                    .type(MessageType.STATUS)
+                    .content(markerContent)
+                    .actorType(ActorType.AGENT)
+                    .build());
+
+            String roundRange = round == 1 ? "1" : "1–" + round;
+            String findingNote = findingsInOriginalOnly > 0
+                    ? " " + findingsInOriginalOnly + " finding(s) from later rounds remain in the original session only."
+                    : "";
+            String specPathJson = jsonString(original.specPath());
+            return """
+                    {"newDebateSessionId":"%s","originalDebateSessionId":"%s","specPath":%s,\
+                    "summary":%s,"contextCarried":{"roundsIncluded":"%s","pointCount":%d,\
+                    "findingsIncluded":%d,"findingsInOriginalOnly":%d},\
+                    "message":"New session ready. Rounds %s from the original are visible here.%s \
+                    Call end_debate on originalDebateSessionId when done with it."}""".formatted(
+                    newSessionId, debateSessionId, specPathJson,
+                    jsonString(summary), roundRange, pointCount,
+                    findingsIncluded, findingsInOriginalOnly,
+                    roundRange, findingNote);
+
+        } catch (Exception e) {
+            LOG.warning("restart_from_round failed: " + e.getMessage() + " — attempting cleanup");
+            if (newChannel != null) {
+                if (newRevId != null) {
+                    try { instanceService.deregister(newRevId); } catch (Exception ce) { LOG.warning("cleanup rev: " + ce.getMessage()); }
+                }
+                if (newImpId != null) {
+                    try { instanceService.deregister(newImpId); } catch (Exception ce) { LOG.warning("cleanup imp: " + ce.getMessage()); }
+                }
+                try { registry.remove(newChannel.id); } catch (Exception ce) { LOG.warning("cleanup registry: " + ce.getMessage()); }
+                try { channelService.delete(newChannel.id, true); } catch (Exception ce) { LOG.warning("cleanup channel: " + ce.getMessage()); }
+            }
+            return "error: " + e.getMessage();
+        }
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
+
+    /** Renders a bounded state, returning a custom message when the state has no debate content. */
+    private String renderBounded(ReviewState state, int round) {
+        if (state.points().isEmpty() && state.memos().isEmpty() && state.subTaskFindings().isEmpty()) {
+            return "No debate activity up to round " + round + ".";
+        }
+        return new SummaryRenderer().render(state);
+    }
+
+    /** Escapes a string for inclusion as a JSON string value (RFC 8259 §7). */
+    private static String jsonString(String s) {
+        if (s == null) return "null";
+        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") + "\"";
+    }
 
     private DebateSession resolveSession(String debateSessionId) {
         try {

@@ -2,6 +2,7 @@ package io.casehub.drafthouse.handler;
 
 import io.casehub.drafthouse.*;
 import io.casehub.drafthouse.debate.*;
+import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.message.ProjectionService;
@@ -98,6 +99,24 @@ class VerifyHandlerTest {
         assertThatThrownBy(() -> handler.prepareTask(requestFor(null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("pointId");
+    }
+
+    @Test
+    void buildResponse_propagatesRoundFromTriggerMeta() throws Exception {
+        // The SUB_TASK_REQUEST trigger includes round=3 — the finding must carry it
+        String triggerContent = DebateProtocol.META_SENTINEL
+                + "entryType=SUB_TASK_REQUEST|agent=REV|taskType=VERIFY|subTaskId=sub-1|round=3|pointId=pt-1"
+                + "\n\n";
+        when(outboundMessage.content()).thenReturn(triggerContent);
+        var request = new ChannelAgentRequest(channelId, "sub-1", outboundMessage);
+        io.casehub.qhorus.runtime.message.Message stubMsg = new io.casehub.qhorus.runtime.message.Message();
+        stubMsg.id = 42L;
+        when(messageService.findByCorrelationId("sub-1")).thenReturn(Optional.of(stubMsg));
+
+        MessageDispatch dispatch = handler.buildResponse(channelId, "sender-id", "The finding.", request);
+
+        assertThat(dispatch.content()).contains("entryType=SUB_TASK_FINDING");
+        assertThat(dispatch.content()).contains("round=3");
     }
 
     @Test

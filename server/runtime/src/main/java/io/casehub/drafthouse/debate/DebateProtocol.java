@@ -44,6 +44,16 @@ public final class DebateProtocol {
     }
 
     /**
+     * Parse the {@code round} field from a pre-parsed META map.
+     * Returns 0 if the field is absent or not a valid integer.
+     */
+    public static int parseRound(Map<String, String> meta) {
+        final String r = meta.get("round");
+        if (r == null) return 0;
+        try { return Integer.parseInt(r); } catch (NumberFormatException e) { return 0; }
+    }
+
+    /**
      * Strip the sentinel header and return only the human-readable body.
      * Returns content unchanged if sentinel absent.
      * Returns null if input is null.

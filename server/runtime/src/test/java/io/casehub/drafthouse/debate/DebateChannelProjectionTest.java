@@ -257,4 +257,101 @@ class DebateChannelProjectionTest {
         ProjectionResult<ReviewState> empty = new ProjectionResult<>(proj.identity(), null);
         assertThat(proj.render(empty)).isNotBlank();
     }
+
+    // ── RESTART_CONTEXT string-check ──────────────────────────────────────────
+
+    @Test
+    void restartContext_stateUnchanged_noPointsOrMemos() {
+        ReviewState s = proj.apply(proj.identity(),
+                msg(MessageType.STATUS, null,
+                        "entryType=RESTART_CONTEXT|originChannelId=abc-123|originRound=2",
+                        "## Debate State at Round 2\nSome content."));
+        assertThat(s.points()).isEmpty();
+        assertThat(s.memos()).isEmpty();
+        assertThat(s.subTaskFindings()).isEmpty();
+        assertThat(s.humanFlags()).isEmpty();
+    }
+
+    @Test
+    void restartContext_doesNotProduceWarningPath_unlikeUnknownEntryType() {
+        // RESTART_CONTEXT is intercepted before valueOf() — should return state unchanged
+        // (not fall through to the WARNING log path used for truly unknown types)
+        ReviewState before = proj.apply(proj.identity(),
+                msg(MessageType.QUERY, "pt-1", ratefacts("RAISE", "REV", 1, "P1", "ISOLATED"), "A point."));
+        ReviewState after = proj.apply(before,
+                msg(MessageType.STATUS, null,
+                        "entryType=RESTART_CONTEXT|originChannelId=x|originRound=1", "summary"));
+        // State is unchanged — the RAISE point survives
+        assertThat(after.points()).containsKey("pt-1");
+        assertThat(after.memos()).isEmpty();
+    }
+
+    // ── RoundBoundedProjection ────────────────────────────────────────────────
+
+    @Test
+    void roundBounded_excludesRaiseAboveMaxRound() {
+        var bounded = new DebateChannelProjection.RoundBoundedProjection(1, proj);
+        ReviewState s0 = bounded.apply(bounded.identity(),
+                msg(MessageType.QUERY, "pt-1", ratefacts("RAISE", "REV", 1, "P1", "ISOLATED"), "Round 1."));
+        ReviewState s1 = bounded.apply(s0,
+                msg(MessageType.QUERY, "pt-2", ratefacts("RAISE", "IMP", 2, "P2", "ISOLATED"), "Round 2."));
+        assertThat(s1.points()).containsKey("pt-1");
+        assertThat(s1.points()).doesNotContainKey("pt-2");
+    }
+
+    @Test
+    void roundBounded_includesMessageAtExactlyMaxRound() {
+        var bounded = new DebateChannelProjection.RoundBoundedProjection(2, proj);
+        ReviewState s = bounded.apply(bounded.identity(),
+                msg(MessageType.QUERY, "pt-1", ratefacts("RAISE", "REV", 2, "P1", "ISOLATED"), "Exactly round 2."));
+        assertThat(s.points()).containsKey("pt-1");
+    }
+
+    @Test
+    void roundBounded_memoAboveMaxRound_excluded() {
+        var bounded = new DebateChannelProjection.RoundBoundedProjection(1, proj);
+        ReviewState s0 = bounded.apply(bounded.identity(),
+                msg(MessageType.STATUS, null, "entryType=MEMO|agent=REV|round=1", "Round 1 memo."));
+        ReviewState s1 = bounded.apply(s0,
+                msg(MessageType.STATUS, null, "entryType=MEMO|agent=IMP|round=2", "Round 2 memo."));
+        assertThat(s1.memos()).hasSize(1);
+        assertThat(s1.memos().get(0).content()).isEqualTo("Round 1 memo.");
+    }
+
+    @Test
+    void roundBounded_subTaskFindingWithRoundAboveMax_excluded() {
+        var bounded = new DebateChannelProjection.RoundBoundedProjection(1, proj);
+        ReviewState s = bounded.apply(bounded.identity(),
+                msg(MessageType.RESPONSE, "sub-1",
+                        "entryType=SUB_TASK_FINDING|subTaskId=sub-1|taskType=VERIFY|agent=REV|round=3",
+                        "Late finding."));
+        assertThat(s.subTaskFindings()).isEmpty();
+    }
+
+    @Test
+    void roundBounded_subTaskFindingAtMaxRound_included() {
+        var bounded = new DebateChannelProjection.RoundBoundedProjection(2, proj);
+        ReviewState s = bounded.apply(bounded.identity(),
+                msg(MessageType.RESPONSE, "sub-1",
+                        "entryType=SUB_TASK_FINDING|subTaskId=sub-1|taskType=VERIFY|agent=REV|round=2",
+                        "On-time finding."));
+        assertThat(s.subTaskFindings()).containsKey("sub-1");
+    }
+
+    @Test
+    void roundBounded_identityState_whenAllMessagesAboveMaxRound() {
+        var bounded = new DebateChannelProjection.RoundBoundedProjection(1, proj);
+        ReviewState s = bounded.apply(bounded.identity(),
+                msg(MessageType.QUERY, "pt-1", ratefacts("RAISE", "REV", 5, "P1", "ISOLATED"), "Too late."));
+        assertThat(s.points()).isEmpty();
+        assertThat(s.memos()).isEmpty();
+        assertThat(s.subTaskFindings()).isEmpty();
+    }
+
+    @Test
+    void roundBounded_delegatesIdentityToDelegate() {
+        var bounded = new DebateChannelProjection.RoundBoundedProjection(3, proj);
+        assertThat(bounded.identity().points()).isEmpty();
+        assertThat(bounded.identity().memos()).isEmpty();
+    }
 }
