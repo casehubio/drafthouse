@@ -80,6 +80,14 @@ class DebateMcpToolsTest {
     // ── start_debate ──────────────────────────────────────────────────────────
 
     @Test
+    void startDebate_specPathWithQuote_escapedCorrectlyInJson() {
+        String result = tools.startDebate("/path/to/spec \"with quotes\".md");
+        // Must not produce malformed JSON — the quote must be escaped
+        assertThat(result).contains("\\\"with quotes\\\"");
+        assertThat(result).doesNotContain("\"specPath\":\"/path/to/spec \"");
+    }
+
+    @Test
     void startDebate_registryPutBeforeInitChannel() {
         var order = inOrder(registry, channelGateway);
         tools.startDebate("irrelevant-spec.md");

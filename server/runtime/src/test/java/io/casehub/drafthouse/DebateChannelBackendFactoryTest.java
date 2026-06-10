@@ -118,6 +118,29 @@ class DebateChannelBackendFactoryTest {
     }
 
     @Test
+    void subTaskRequest_nullCorrelationId_fallsBackToGeneratedUuid() {
+        UUID channelId = UUID.randomUUID();
+        ChannelRef channelRef = new ChannelRef(channelId, "drafthouse/debate/d-" + channelId);
+        // correlationId is null — backend must generate a UUID fallback
+        OutboundMessage message = subTaskRequestMessage(null);
+
+        DebateSession session = new DebateSession(
+                channelId, channelId.toString(), "drafthouse/debate/d-" + channelId,
+                "drafthouse-rev-" + channelId, "drafthouse-imp-" + channelId, null);
+        when(debateRegistry.find(channelId)).thenReturn(Optional.of(session));
+        when(channelAgentEvent.fireAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
+
+        debateBackend.post(channelRef, message);
+
+        ArgumentCaptor<ChannelAgentRequest> captor = ArgumentCaptor.forClass(ChannelAgentRequest.class);
+        verify(channelAgentEvent).fireAsync(captor.capture());
+        assertThat(captor.getValue().correlationId()).isNotNull();
+        assertThat(captor.getValue().correlationId()).isNotEmpty();
+        // Must be a valid UUID
+        assertThat(java.util.UUID.fromString(captor.getValue().correlationId())).isNotNull();
+    }
+
+    @Test
     void subTaskRequest_withNoActiveSession_dropsEventAndDoesNotFire() {
         UUID channelId = UUID.randomUUID();
         ChannelRef channelRef = new ChannelRef(channelId, "drafthouse/debate/d-" + channelId);

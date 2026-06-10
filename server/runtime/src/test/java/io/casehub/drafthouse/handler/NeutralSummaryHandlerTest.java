@@ -68,4 +68,21 @@ class NeutralSummaryHandlerTest {
         assertThat(task.assembledInput()).contains("pt-1");
         assertThat(task.assembledInput()).contains("The raise content.");
     }
+
+    @Test
+    void multi_entry_thread_all_entries_appear_in_assembled_input() {
+        var thread = List.of(
+                new ThreadEntry("pt-1", AgentType.REV, 1, EntryType.RAISE, "The concern."),
+                new ThreadEntry(null,   AgentType.IMP, 2, EntryType.DISPUTE, "I disagree because...")
+        );
+        var point = new ReviewPoint("pt-1",
+                new PointClassification(Priority.P2, Scope.SYSTEMIC, null), thread, ReviewStatus.DISPUTED);
+        var state = new ReviewState(Map.of("pt-1", point), List.of(), List.of(), Map.of());
+        when(projectionService.project(any(), any())).thenReturn(new ProjectionResult<>(state, null));
+        AgentTask task = handler.prepareTask(new ChannelAgentRequest(channelId, "sub-1", outboundMessage));
+        assertThat(task.assembledInput()).contains("The concern.");
+        assertThat(task.assembledInput()).contains("I disagree because...");
+        assertThat(task.assembledInput()).contains("RAISE");
+        assertThat(task.assembledInput()).contains("DISPUTE");
+    }
 }

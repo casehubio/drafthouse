@@ -79,9 +79,8 @@ public class DebateMcpTools {
             registry.put(session);
             channelGateway.initChannel(channel.id, new ChannelRef(channel.id, resolvedName));
 
-            String specPathJson = specPath != null ? "\"" + specPath + "\"" : "null";
             return "{\"debateSessionId\":\"" + debateSessionId + "\",\"channel\":\"" + resolvedName
-                    + "\",\"specPath\":" + specPathJson + "}";
+                    + "\",\"specPath\":" + jsonString(specPath) + "}";
 
         } catch (Exception e) {
             LOG.warning("start_debate failed: " + e.getMessage() + " — attempting cleanup");
