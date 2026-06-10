@@ -22,6 +22,7 @@ import io.casehub.qhorus.runtime.message.ProjectionService;
 import io.casehub.drafthouse.debate.DebateChannelProjection;
 import io.casehub.drafthouse.debate.DebateProtocol;
 import io.casehub.drafthouse.debate.ReviewState;
+import io.casehub.drafthouse.debate.SubTaskStatus;
 import io.casehub.drafthouse.debate.SummaryRenderer;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
@@ -383,8 +384,14 @@ public class DebateMcpTools {
         var fullResult = projectionService.project(original.channelId(), debateProjection);
 
         String summary = renderBounded(boundedResult.state(), round);
-        int findingsIncluded = boundedResult.state().subTaskFindings().size();
-        int findingsInOriginalOnly = fullResult.state().subTaskFindings().size() - findingsIncluded;
+        int findingsComplete = (int) boundedResult.state().subTaskFindings().values().stream()
+                .filter(f -> f.status() == SubTaskStatus.COMPLETE)
+                .count();
+        int findingsPending = (int) boundedResult.state().subTaskFindings().values().stream()
+                .filter(f -> f.status() == SubTaskStatus.PENDING)
+                .count();
+        int findingsInOriginalOnly = fullResult.state().subTaskFindings().size()
+                - boundedResult.state().subTaskFindings().size();
         int pointCount = boundedResult.state().points().size();
 
         // Create new session (same pattern as start_debate)
@@ -433,12 +440,12 @@ public class DebateMcpTools {
             return """
                     {"newDebateSessionId":"%s","originalDebateSessionId":"%s","specPath":%s,\
                     "summary":%s,"contextCarried":{"roundsIncluded":"%s","pointCount":%d,\
-                    "findingsIncluded":%d,"findingsInOriginalOnly":%d},\
+                    "findingsComplete":%d,"findingsPending":%d,"findingsInOriginalOnly":%d},\
                     "message":"New session ready. Rounds %s from the original are visible here.%s \
                     Call end_debate on originalDebateSessionId when done with it."}""".formatted(
                     newSessionId, debateSessionId, specPathJson,
                     jsonString(summary), roundRange, pointCount,
-                    findingsIncluded, findingsInOriginalOnly,
+                    findingsComplete, findingsPending, findingsInOriginalOnly,
                     roundRange, findingNote);
 
         } catch (Exception e) {

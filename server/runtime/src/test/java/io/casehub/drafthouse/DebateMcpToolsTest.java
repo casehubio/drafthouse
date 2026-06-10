@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,6 +27,9 @@ import io.casehub.qhorus.runtime.message.ProjectionService;
 import io.casehub.drafthouse.debate.DebateChannelProjection;
 import io.casehub.drafthouse.debate.DebateProtocol;
 import io.casehub.drafthouse.debate.ReviewState;
+import io.casehub.drafthouse.debate.SubTaskFinding;
+import io.casehub.drafthouse.debate.SubTaskStatus;
+import io.casehub.drafthouse.debate.SubTaskType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -584,6 +588,40 @@ class DebateMcpToolsTest {
         verify(instanceService, never()).deregister(contains(originalId.toString()));
     }
 
+    @Test
+    void restartFromRound_findingsComplete_separatesCompletedFromPending() {
+        UUID originalId = stubChannel.id;
+        when(registry.find(originalId)).thenReturn(Optional.of(sessionFor(originalId)));
+
+        // Bounded state (rounds ≤ 2): 2 COMPLETE + 1 PENDING
+        ReviewState boundedState = stateWithFindings(
+                finding("f1", SubTaskStatus.COMPLETE),
+                finding("f2", SubTaskStatus.COMPLETE),
+                finding("f3", SubTaskStatus.PENDING));
+        // Full state: same 3 + 2 more COMPLETE from rounds > 2
+        ReviewState fullState = stateWithFindings(
+                finding("f1", SubTaskStatus.COMPLETE),
+                finding("f2", SubTaskStatus.COMPLETE),
+                finding("f3", SubTaskStatus.PENDING),
+                finding("f4", SubTaskStatus.COMPLETE),
+                finding("f5", SubTaskStatus.COMPLETE));
+
+        Channel newCh = newChannel();
+        when(channelService.create(anyString(), anyString(), eq(ChannelSemantic.APPEND), isNull()))
+                .thenReturn(newCh);
+        when(projectionService.project(eq(originalId), isA(DebateChannelProjection.RoundBoundedProjection.class)))
+                .thenReturn(new ProjectionResult<>(boundedState, 10L));
+        when(projectionService.project(eq(originalId), eq(debateProjection)))
+                .thenReturn(new ProjectionResult<>(fullState, 20L));
+
+        String result = tools.restartFromRound(originalId.toString(), 2);
+
+        assertThat(result).contains("\"findingsComplete\":2");
+        assertThat(result).contains("\"findingsPending\":1");
+        assertThat(result).contains("\"findingsInOriginalOnly\":2");
+        assertThat(result).doesNotContain("findingsIncluded");
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private DebateSession sessionFor(UUID channelId) {
@@ -603,5 +641,18 @@ class DebateMcpToolsTest {
         ch.id = UUID.randomUUID();
         ch.name = "drafthouse/debate/d-new-" + ch.id;
         return ch;
+    }
+
+    private static ReviewState stateWithFindings(SubTaskFinding... findings) {
+        Map<String, SubTaskFinding> map = new LinkedHashMap<>();
+        for (final SubTaskFinding f : findings) map.put(f.subTaskId(), f);
+        return new ReviewState(Map.of(), List.of(), List.of(), map);
+    }
+
+    private static SubTaskFinding finding(final String id, final SubTaskStatus status) {
+        return new SubTaskFinding(id, SubTaskType.VERIFY, "REV", null,
+                status == SubTaskStatus.COMPLETE ? "the finding text" : null,
+                status == SubTaskStatus.ERROR ? "error occurred" : null,
+                status);
     }
 }
