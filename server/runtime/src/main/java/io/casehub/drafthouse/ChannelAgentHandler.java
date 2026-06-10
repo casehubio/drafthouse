@@ -22,9 +22,8 @@ public interface ChannelAgentHandler {
 
     /**
      * Build the Qhorus MessageDispatch from the LLM output.
-     * @throws AgentResultParseException if LLM output cannot be parsed.
+     * Implementations may throw AgentResultParseException (unchecked) if LLM output cannot be parsed.
      */
     MessageDispatch buildResponse(UUID channelId, String senderId,
-                                  String llmOutput, ChannelAgentRequest trigger)
-            throws AgentResultParseException;
+                                  String llmOutput, ChannelAgentRequest trigger);
 }

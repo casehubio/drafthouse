@@ -1,6 +1,5 @@
 package io.casehub.drafthouse.handler;
 
-import io.casehub.drafthouse.AgentResultParseException;
 import io.casehub.drafthouse.ChannelAgentHandler;
 import io.casehub.drafthouse.ChannelAgentRequest;
 import io.casehub.drafthouse.DebateSessionRegistry;
@@ -44,8 +43,7 @@ abstract class AbstractDebateSubAgentHandler implements ChannelAgentHandler {
 
     @Override
     public final MessageDispatch buildResponse(UUID channelId, String senderId,
-                                               String llmOutput, ChannelAgentRequest trigger)
-            throws AgentResultParseException {
+                                               String llmOutput, ChannelAgentRequest trigger) {
         Map<String, String> meta = DebateProtocol.parseMeta(trigger.message().content());
         String subTaskId = meta.getOrDefault("subTaskId", trigger.correlationId());
         String agent = meta.getOrDefault("agent", "UNKNOWN");

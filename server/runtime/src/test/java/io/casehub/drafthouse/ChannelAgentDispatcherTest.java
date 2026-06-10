@@ -79,8 +79,7 @@ class ChannelAgentDispatcherTest {
         ChannelAgentHandler throwingHandler = new ChannelAgentHandler() {
             public boolean handles(ChannelAgentRequest r) { return true; }
             public AgentTask prepareTask(ChannelAgentRequest r) { return new AgentTask("s", "u"); }
-            public MessageDispatch buildResponse(UUID c, String s, String o, ChannelAgentRequest t)
-                    throws AgentResultParseException {
+            public MessageDispatch buildResponse(UUID c, String s, String o, ChannelAgentRequest t) {
                 throw new AgentResultParseException("bad format");
             }
         };
