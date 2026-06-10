@@ -454,6 +454,33 @@ Key architectural decisions shipped:
 
 ---
 
+#### Chapter 8 — N-Participant Debate Sessions
+
+**Journey:** Review | **Sequence:** 8 of 5 | **Status:** ✅
+**Delivered:** 2026-06-10 | **Issues:** #41 (sub-project 1 of 4) #49 #48 #46 #45 | **Blog:** —
+
+**What this delivers**
+
+Lifts the two-party (REV/IMP) constraint from the debate session layer. Any number of participants — REV, IMP, SUPERVISOR, MODERATOR, SELECTOR — can now post to a debate channel. Session management and projection folding are both updated. Also delivers a batch of quality improvements from code review (#49, #48, #46, #45).
+
+Key architectural decisions shipped:
+- `AgentType` enum extended — REV, IMP, SUPERVISOR, MODERATOR, SELECTOR; migration to configuration file deferred explicitly
+- `DebateSession` record → class — a live session with dynamic participants is not a value type; `ConcurrentHashMap<AgentType, String> participants` replaces fixed `revInstanceId`/`impInstanceId` fields; stays in `api/` module (pure Java)
+- `DebateSession.registerIfAbsent(AgentType, Supplier<String>)` — encapsulates `computeIfAbsent` inside the class to prevent callers from calling it on the unmodifiable view (which would throw `UnsupportedOperationException`); documented retry semantics on exception path (supplier retry is safe because `InstanceService.register()` is an upsert)
+- `DebateSession.instanceId(AgentType, String)` static method — single source of truth for the `"drafthouse-{role}-{sessionId}"` naming convention; shared by production code and tests
+- Lazy participant registration via `sender(session, AgentType)` — `start_debate` still registers REV + IMP eagerly; all other roles lazy-register on first use; cleanup blocks iterate `session.participants().values()` (live unmodifiable view) to cover any number of registered participants
+- `DebateChannelProjection.agentType()` fold fix — previously a hardcoded switch that threw `IllegalArgumentException` for unknown agents; `ProjectionService.fold()` has no exception handling so any throw terminates the fold and permanently breaks the session; now returns null with ERROR (missing field) or WARNING (unknown value) log; three call sites (handleRaise, appendToPoint, handleFlagHuman) check null and return state
+- `findingsIncluded` renamed to `findingsComplete` + `findingsPending` added (#49) — PENDING sub-tasks have no resolved content; the old count conflated requests with actual findings
+- `start_debate` specPath JSON escaping fix (#48) — was using manual quote wrapping; now uses the existing `jsonString()` helper consistently
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| Debate Channel | High — `agentType()` fold safety, N-participant projection |
+| Session Model | High — `DebateSession` record → class, participants map |
+
+---
+
 ### §9.4 Layer Entries
 
 ---
