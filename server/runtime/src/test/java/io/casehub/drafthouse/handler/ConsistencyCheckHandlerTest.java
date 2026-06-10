@@ -54,10 +54,12 @@ class ConsistencyCheckHandlerTest {
     }
 
     @Test
-    void blank_body_throws_with_message() {
+    void blank_body_throws_with_message_mentioning_resolution_text_not_customInput() {
         assertThatThrownBy(() -> handler.prepareTask(requestWithBody("")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("CONSISTENCY_CHECK");
+                .hasMessageContaining("CONSISTENCY_CHECK")
+                .hasMessageContaining("proposed resolution text")
+                .hasMessageNotContaining("customInput");
     }
 
     @Test

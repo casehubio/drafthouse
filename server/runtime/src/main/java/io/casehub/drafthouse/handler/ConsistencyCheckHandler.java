@@ -4,6 +4,7 @@ import io.casehub.drafthouse.ChannelAgentRequest;
 import io.casehub.drafthouse.debate.*;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -16,12 +17,12 @@ class ConsistencyCheckHandler extends AbstractDebateSubAgentHandler {
         String body = DebateProtocol.bodyContent(request.message().content());
         if (body == null || body.isBlank())
             throw new IllegalArgumentException(
-                    "CONSISTENCY_CHECK requires customInput (proposed resolution text) in the message body");
+                    "CONSISTENCY_CHECK requires proposed resolution text in the message body");
         ReviewState state = currentState(request.channelId());
-        int[] idx = {1};
+        var counter = new AtomicInteger(1);
         String agreedList = state.points().values().stream()
                 .filter(p -> p.currentStatus() == ReviewStatus.AGREED)
-                .map(p -> idx[0]++ + ". [" + p.id() + "] " + p.thread().get(0).content())
+                .map(p -> counter.getAndIncrement() + ". [" + p.id() + "] " + p.thread().get(0).content())
                 .collect(Collectors.joining("\n"));
         if (agreedList.isBlank()) agreedList = "(no agreed points yet)";
         return new AgentTask(
