@@ -1,5 +1,7 @@
 # CLAUDE.md — DraftHouse
 
+**Name:** casehub-drafthouse
+
 ## Project Type
 
 **Type:** CaseHub application (Quarkus)
