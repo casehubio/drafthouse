@@ -38,11 +38,6 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
         String entryTypeStr = meta.get("entryType");
         if (entryTypeStr == null) return state;
 
-        // RESTART_CONTEXT is infrastructure provenance — not a domain EntryType.
-        // Intercepted here to avoid polluting the EntryType enum and breaking
-        // SummaryRenderer's exhaustive switch.
-        if ("RESTART_CONTEXT".equals(entryTypeStr)) return state;
-
         EntryType entryType;
         try {
             entryType = EntryType.valueOf(entryTypeStr);
@@ -63,6 +58,7 @@ public class DebateChannelProjection implements RenderableProjection<ReviewState
             case SUB_TASK_REQUEST -> handleSubTaskRequest(state, message, meta);
             case SUB_TASK_FINDING -> handleSubTaskFinding(state, message, meta);
             case SUB_TASK_ERROR   -> handleSubTaskError(state, message, meta);
+            case RESTART_CONTEXT  -> state;
         };
     }
 

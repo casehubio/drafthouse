@@ -52,7 +52,7 @@ public class SummaryRenderer {
                     case QUALIFY    -> "qualify";
                     case FLAG_HUMAN -> "flag";
                     case DECLINED   -> "declined";
-                    case MEMO, SUB_TASK_REQUEST, SUB_TASK_FINDING, SUB_TASK_ERROR ->
+                    case MEMO, SUB_TASK_REQUEST, SUB_TASK_FINDING, SUB_TASK_ERROR, RESTART_CONTEXT ->
                         throw new IllegalStateException("entry type " + entry.type() + " must not appear in ThreadEntry");
                 };
                 sb.append("> **").append(entry.agent()).append(" (").append(typeLabel).append("):** ")

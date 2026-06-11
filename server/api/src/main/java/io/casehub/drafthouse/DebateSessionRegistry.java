@@ -1,5 +1,6 @@
 package io.casehub.drafthouse;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,4 +18,7 @@ public interface DebateSessionRegistry {
 
     /** Removes the session for the given channel. No-op if not found. */
     void remove(UUID channelId);
+
+    /** Returns a snapshot of all active sessions. Safe to iterate concurrently. */
+    Collection<DebateSession> activeSessions();
 }

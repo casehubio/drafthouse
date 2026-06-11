@@ -726,6 +726,43 @@ document.addEventListener('DOMContentLoaded', () => {
     updateNavCounter(nonEqIndices());
   });
 });
+
+// ── Debate SSE (sp2 — data pipe only, sp3 adds rendering) ────────────
+let debateEventSource = null;
+
+function connectDebateSSE(debateSessionId) {
+    if (debateEventSource) {
+        debateEventSource.close();
+    }
+    debateEventSource = new EventSource(
+        '/api/debate/' + encodeURIComponent(debateSessionId) + '/events');
+    debateEventSource.onmessage = function(e) {
+        var events;
+        try {
+            events = JSON.parse(e.data);
+        } catch (err) {
+            return;
+        }
+        if (events.type === 'heartbeat') return;
+        if (!Array.isArray(events)) events = [events];
+        events.forEach(function(event) {
+            document.dispatchEvent(
+                new CustomEvent('debate-event', { detail: event }));
+        });
+    };
+    debateEventSource.onerror = function() {
+        // EventSource auto-reconnects; sp3 contract: clear accumulated
+        // events on reconnect (replay-from-start)
+    };
+    return debateEventSource;
+}
+
+function disconnectDebateSSE() {
+    if (debateEventSource) {
+        debateEventSource.close();
+        debateEventSource = null;
+    }
+}
 </script>
 </body>
 </html>

@@ -46,7 +46,7 @@ DraftHouse is an MCP-driven document review tool. An LLM client opens a document
 
 | Constraint | Detail |
 |---|---|
-| Java 17 | Sealed types required for `DebateEvent` |
+| Java 17 | Sealed types, exhaustive switches on `EntryType` |
 | Quarkus 3.34.3 | Platform BOM version |
 | casehub-qhorus 0.2-SNAPSHOT | Pre-release; `ChannelProjection` SPI (qhorus#230) required |
 | quarkus-langchain4j 1.9.1 | Built against Quarkus 3.33.1; validated on 3.34.3; 0.x line incompatible |
@@ -873,7 +873,7 @@ Cross-cutting decisions not captured inline in layer or Chapter entries.
 
 | Term | Definition |
 |---|---|
-| **DebateEvent** | Sealed Java 17 interface with six record variants representing one event in a structured review debate — question, answer, rejection, or session boundary marker |
+| **DebateEvent** | *(Superseded in C5)* Originally a sealed Java 17 interface. Now replaced by `EntryType` enum + `DebateProtocol.parseMeta()` for flexible debate entry parsing. `DebateStreamEntry` is the transport DTO for SSE delivery. |
 | **ReviewState** | Immutable fold state produced by `SummaryProjector` — contains the current review, all debate rounds, and the last committed event ID |
 | **ReviewPoint** | Selection anchor identifying the document region under review — file path, line range, and tokenized text |
 | **ChannelProjection** | Qhorus SPI (qhorus#230) for incremental fold over a channel's committed events; called once per new commit rather than replaying from the beginning |

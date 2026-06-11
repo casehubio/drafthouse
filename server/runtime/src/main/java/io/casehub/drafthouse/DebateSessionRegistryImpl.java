@@ -1,5 +1,7 @@
 package io.casehub.drafthouse;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,5 +30,10 @@ public class DebateSessionRegistryImpl implements DebateSessionRegistry {
     @Override
     public void remove(final UUID channelId) {
         sessions.remove(channelId);
+    }
+
+    @Override
+    public Collection<DebateSession> activeSessions() {
+        return List.copyOf(sessions.values());
     }
 }

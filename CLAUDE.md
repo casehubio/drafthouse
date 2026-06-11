@@ -90,7 +90,7 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 | `server/` | Multi-module Maven parent (api/ + runtime/ + claude-agent/) |
 | `server/api/` | Pure Java domain model — no Quarkus, no Qhorus; includes `debate/` package |
 | `server/runtime/` | Quarkus 3.34.3 app — all resources, Qhorus, LangChain4j |
-| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Watch, Ui, DraftHouseMcpTools, DebateMcpTools, DraftHouseInstances, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, DebateChannelBackend, DebateChannelBackendFactory, debate/ |
+| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Watch, Ui, DraftHouseMcpTools, DebateMcpTools, DraftHouseInstances, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, debate/ |
 | `server/claude-agent/` | Optional module — ClaudeAgentSdkDebateAgentProvider (stub, pending platform#55) |
 | `server/runtime/src/main/resources/application.properties` | Quarkus config |
 | `server/runtime/target/drafthouse-server-runner.jar` | Built uber-jar (not committed) |
@@ -112,11 +112,14 @@ Quarkus Server (drafthouse-server-runner.jar)
   ├── GET /api/watch?path=   ← SSE file-change stream
   ├── GET /                  ← serve index.html (from -Dui.dir)
   ├── MCP tools (review)     ← start_review, update_selection, query_review, end_review
-  └── MCP tools (debate)     ← start_debate, raise_point, respond_to, flag_human, get_debate_summary, end_debate
+  ├── MCP tools (debate)     ← start_debate, raise_point, respond_to, flag_human, get_debate_summary, end_debate
+  ├── GET /api/debate/{id}/events  ← SSE debate event stream
+  └── GET /api/debate/sessions     ← active debate session list
 
 Browser UI (index.html)
   ├── fetch /api/file              ← load file content (relative URLs)
   ├── EventSource /api/watch       ← live reload on file change
+  ├── EventSource /api/debate/{id}/events  ← live debate events
   ├── marked.js + highlight.js     ← render markdown
   ├── URL query params (?a=&b=)    ← initial file loading
   ├── LCS line diff                ← compare A and B
