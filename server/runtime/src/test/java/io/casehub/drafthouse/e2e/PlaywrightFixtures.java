@@ -38,8 +38,9 @@ public final class PlaywrightFixtures {
      * [data-diff-chunk] is set by annotateRendered() inside updateDiffMap(), which
      * runs after marked.js rendering. It only appears when at least one diff chunk
      * exists — all fixture pairs must produce at least one diff.
+     * Playwright's locator() API automatically pierces open shadow DOM.
      */
     public static void waitForRender(Page page) {
-        page.waitForSelector("[data-diff-chunk]");
+        page.locator("[data-diff-chunk]").first().waitFor();
     }
 }
