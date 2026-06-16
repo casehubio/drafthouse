@@ -5,7 +5,6 @@ import com.microsoft.playwright.Page;
 import io.casehub.drafthouse.DebateMcpTools;
 import io.casehub.drafthouse.DebateSession;
 import io.casehub.drafthouse.DebateSessionRegistry;
-import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkiverse.playwright.InjectPlaywright;
 import io.quarkiverse.playwright.WithPlaywright;
@@ -17,9 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static io.casehub.drafthouse.e2e.DebateE2EFixtures.*;
@@ -44,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * extension updates the Merkle frontier. When casehub-ledger SNAPSHOT adds new
  * columns that Flyway hasn't migrated (e.g. TENANCY_ID), the frontier query
  * fails <em>after</em> the message is already persisted. The message is visible
- * via SSE, so E2E assertions work. The dispatch helpers in this class catch the
+ * via SSE, so E2E assertions work. The dispatch helpers in {@link DebateE2EFixtures} catch the
  * propagated exception to keep the test focused on UI rendering. Once the ledger
  * migration is updated, the catch blocks become no-ops.
  */
@@ -106,7 +103,7 @@ class DebatePanelE2ETest {
     @Test
     void roundDivider_appearsOnFirstEntry() {
         sessionId = startDebateSession(tools);
-        dispatchRaise(sessionId, "REV", 1, "Test point.", "P2", "ISOLATED", null);
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Test point.", "P2", "ISOLATED", null);
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 1);
         assertThat(page.locator("drafthouse-debate .round-divider")).containsText("Round 1");
@@ -117,7 +114,7 @@ class DebatePanelE2ETest {
     @Test
     void raiseEntry_rendersWithCorrectStructure() {
         sessionId = startDebateSession(tools);
-        dispatchRaise(sessionId, "REV", 1, "API contract is underspecified.", "P1", "ISOLATED", "§3.2");
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "API contract is underspecified.", "P1", "ISOLATED", "§3.2");
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 1);
 
@@ -133,8 +130,8 @@ class DebatePanelE2ETest {
     @Test
     void agreeEntry_hasCorrectClass() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for agree.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "agree", "Agreed.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for agree.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "agree", "Agreed.");
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 2);
 
@@ -144,8 +141,8 @@ class DebatePanelE2ETest {
     @Test
     void counterEntry_hasCorrectClass() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for counter.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "counter", "Counter-proposal.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for counter.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "counter", "Counter-proposal.");
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 2);
 
@@ -155,8 +152,8 @@ class DebatePanelE2ETest {
     @Test
     void disputeEntry_hasCorrectClass() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for dispute.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "dispute", "Disputed.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for dispute.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "dispute", "Disputed.");
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 2);
 
@@ -166,8 +163,8 @@ class DebatePanelE2ETest {
     @Test
     void qualifyEntry_hasCorrectClass() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for qualify.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "qualify", "Qualified.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for qualify.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "qualify", "Qualified.");
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 2);
 
@@ -177,8 +174,8 @@ class DebatePanelE2ETest {
     @Test
     void declinedEntry_hasReducedOpacity() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for declined.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "declined", "Declined to address.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for declined.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "declined", "Declined to address.");
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 2);
 
@@ -190,8 +187,8 @@ class DebatePanelE2ETest {
     @Test
     void flagHumanEntry_rendersWarningBanner() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Ambiguous requirement.", "P1", "SYSTEMIC", null);
-        dispatchFlag(sessionId, "REV", 1, pointId, "Cannot resolve without human input.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Ambiguous requirement.", "P1", "SYSTEMIC", null);
+        dispatchFlag(tools, sessionId, "REV", 1, pointId, "Cannot resolve without human input.");
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 2);
 
@@ -224,8 +221,8 @@ class DebatePanelE2ETest {
     @Test
     void restartContext_rendersCenteredBranchMarker() {
         sessionId = startDebateSession(tools);
-        dispatchRaise(sessionId, "REV", 1, "Initial point.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 2, findLatestCorrelationId(sessionId), "agree", "Agreed.");
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Initial point.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 2, findLatestCorrelationId(messageService, sessionId), "agree", "Agreed.");
 
         // restartFromRound creates a new channel + session, then dispatches a RESTART_CONTEXT
         // marker message. The marker dispatch may hit the ledger frontier exception, which
@@ -254,10 +251,10 @@ class DebatePanelE2ETest {
 
         // If we still can't find a branched session, the ledger exception destroyed it.
         // Skip the test — restartFromRound is too fragile with the current schema drift.
-        if (newSessionId == null || newSessionId.isBlank()) {
-            // TODO: Re-enable once ledger migration is updated (casehub-ledger TENANCY_ID)
-            return;
-        }
+        // TODO: Re-enable once ledger migration is updated (casehub-ledger TENANCY_ID)
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                newSessionId != null && !newSessionId.isBlank(),
+                "Ledger TENANCY_ID drift prevents restartFromRound — skipping");
 
         branchedSessionId = newSessionId;
         loadWithDebate(page, index, newSessionId);
@@ -272,8 +269,8 @@ class DebatePanelE2ETest {
     @Test
     void multipleRounds_showsSeparateDividers() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Round one point.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 2, pointId, "counter", "Counterpoint in round two.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Round one point.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 2, pointId, "counter", "Counterpoint in round two.");
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 2);
 
@@ -289,7 +286,7 @@ class DebatePanelE2ETest {
         sessionId = startDebateSession(tools);
         // Raise 6 points to overflow the debate container
         for (int i = 1; i <= 6; i++) {
-            dispatchRaise(sessionId, "REV", 1, "Point number " + i + " with enough content to take space.", "P2", "ISOLATED", null);
+            dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point number " + i + " with enough content to take space.", "P2", "ISOLATED", null);
         }
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 6);
@@ -308,7 +305,7 @@ class DebatePanelE2ETest {
     @Test
     void pointSelected_firesCustomEvent() {
         sessionId = startDebateSession(tools);
-        dispatchRaise(sessionId, "REV", 1, "Clickable point.", "P1", "ISOLATED", "§3.2");
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Clickable point.", "P1", "ISOLATED", "§3.2");
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 1);
 
@@ -330,11 +327,11 @@ class DebatePanelE2ETest {
     @Test
     void subTaskRequest_rendersIndented() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for sub-task.", "P2", "ISOLATED", null);
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for sub-task.", "P2", "ISOLATED", null);
 
         // requestSubagent has its own try-catch — returns "error: ..." on ledger exception
         // but the message is still committed and visible via SSE
-        dispatchSubagentRequest(sessionId, "REV", "VERIFY", pointId, 1, null);
+        dispatchSubagentRequest(tools, sessionId, "REV", "VERIFY", pointId, 1, null);
 
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 2);
@@ -345,10 +342,10 @@ class DebatePanelE2ETest {
     @Test
     void subTaskFinding_rendersWithPointBadge() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for finding.", "P2", "ISOLATED", null);
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for finding.", "P2", "ISOLATED", null);
 
         // VERIFY taskType → MockDebateAgentProvider completes async → SUB_TASK_FINDING
-        dispatchSubagentRequest(sessionId, "REV", "VERIFY", pointId, 1, null);
+        dispatchSubagentRequest(tools, sessionId, "REV", "VERIFY", pointId, 1, null);
 
         loadWithDebate(page, index, sessionId);
         // Wait for the raise + sub_task_request entries
@@ -364,17 +361,18 @@ class DebatePanelE2ETest {
                     .waitFor(new com.microsoft.playwright.Locator.WaitForOptions().setTimeout(5000));
             assertEquals(1, page.locator("drafthouse-debate .entry-sub_task_finding").count());
         } catch (com.microsoft.playwright.TimeoutError e) {
-            // Ledger schema drift prevents fan-out — skip gracefully
+            org.junit.jupiter.api.Assumptions.assumeTrue(false,
+                    "Ledger TENANCY_ID drift prevents async fan-out — skipping");
         }
     }
 
     @Test
     void subTaskError_rendersWithErrorStyling() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for error.", "P2", "ISOLATED", null);
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for error.", "P2", "ISOLATED", null);
 
         // NONEXISTENT taskType → no handler matches → SUB_TASK_ERROR dispatched
-        dispatchSubagentRequest(sessionId, "REV", "NONEXISTENT", pointId, 1, null);
+        dispatchSubagentRequest(tools, sessionId, "REV", "NONEXISTENT", pointId, 1, null);
 
         loadWithDebate(page, index, sessionId);
         waitForDebateEntries(page, 2);
@@ -387,82 +385,9 @@ class DebatePanelE2ETest {
             assertEquals(1, page.locator("drafthouse-debate .entry-sub_task_error").count());
             assertThat(page.locator("drafthouse-debate .entry-sub_task_error")).containsText("No handler matched");
         } catch (com.microsoft.playwright.TimeoutError e) {
-            // Ledger schema drift prevents fan-out — skip gracefully
+            org.junit.jupiter.api.Assumptions.assumeTrue(false,
+                    "Ledger TENANCY_ID drift prevents async fan-out — skipping");
         }
     }
 
-    // ── dispatch helpers (absorb ledger frontier schema drift) ────────────────
-
-    /**
-     * Dispatches a raise_point, returning the pointId.
-     * Catches ledger frontier exceptions — the message is persisted before the
-     * frontier query fails, so SSE delivery works regardless.
-     * When the exception swallows the return value, falls back to querying
-     * the channel's messages for the correlationId of the RAISE entry.
-     */
-    private String dispatchRaise(String sid, String role, int round, String content,
-                                 String priority, String scope, String location) {
-        try {
-            return extractPointId(tools.raisePoint(sid, role, round, content, priority, scope, location));
-        } catch (Exception e) {
-            // Ledger frontier schema drift — message already committed.
-            // The return value with pointId is lost, so query the channel messages.
-            return findLatestCorrelationId(sid);
-        }
-    }
-
-    /**
-     * Dispatches a respondTo, absorbing ledger frontier exceptions.
-     */
-    private void dispatchResponse(String sid, String role, int round,
-                                  String pointId, String entryType, String content) {
-        try {
-            tools.respondTo(sid, role, round, pointId, entryType, content);
-        } catch (Exception ignored) {
-            // Message committed before frontier query — SSE delivery works.
-        }
-    }
-
-    /**
-     * Dispatches a flagHuman, absorbing ledger frontier exceptions.
-     */
-    private void dispatchFlag(String sid, String role, int round,
-                              String pointId, String reason) {
-        try {
-            tools.flagHuman(sid, role, round, pointId, reason);
-        } catch (Exception ignored) {
-            // Message committed before frontier query — SSE delivery works.
-        }
-    }
-
-    /**
-     * Dispatches a requestSubagent, absorbing ledger frontier exceptions.
-     * requestSubagent has its own try-catch and returns "error: ..." on failure,
-     * but the message is still committed before the frontier query fails.
-     */
-    private void dispatchSubagentRequest(String sid, String role, String taskType,
-                                         String pointId, int round, String customInput) {
-        try {
-            tools.requestSubagent(sid, role, taskType, pointId, round, customInput);
-        } catch (Exception ignored) {
-            // Message committed before frontier query — SSE delivery works.
-        }
-    }
-
-    /**
-     * Queries the channel's messages to find the correlationId of the latest RAISE entry.
-     * Used as a fallback when raisePoint throws before returning the pointId.
-     */
-    private String findLatestCorrelationId(String sid) {
-        UUID channelId = UUID.fromString(sid);
-        List<Message> messages = messageService.pollAfter(channelId, 0L, 500);
-        // Walk backwards to find the latest message with a correlationId
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            Message m = messages.get(i);
-            if (m.correlationId != null && !m.correlationId.isBlank()) {
-                return m.correlationId;
-            }
-        }
-        throw new AssertionError("No message with correlationId found in channel " + sid);
-    }
 }

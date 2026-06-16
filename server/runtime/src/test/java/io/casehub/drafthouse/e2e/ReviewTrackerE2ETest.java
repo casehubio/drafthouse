@@ -3,7 +3,6 @@ package io.casehub.drafthouse.e2e;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Page;
 import io.casehub.drafthouse.DebateMcpTools;
-import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.quarkiverse.playwright.InjectPlaywright;
 import io.quarkiverse.playwright.WithPlaywright;
@@ -15,9 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static io.casehub.drafthouse.e2e.DebateE2EFixtures.*;
@@ -36,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * extension updates the Merkle frontier. When casehub-ledger SNAPSHOT adds new
  * columns that Flyway hasn't migrated (e.g. TENANCY_ID), the frontier query
  * fails <em>after</em> the message is already persisted. The message is visible
- * via SSE, so E2E assertions work. The dispatch helpers in this class catch the
+ * via SSE, so E2E assertions work. The dispatch helpers in {@link DebateE2EFixtures} catch the
  * propagated exception to keep the test focused on UI rendering. Once the ledger
  * migration is updated, the catch blocks become no-ops.
  */
@@ -95,7 +92,7 @@ class ReviewTrackerE2ETest {
     @Test
     void raisedPoint_showsOpenStatus() {
         sessionId = startDebateSession(tools);
-        dispatchRaise(sessionId, "REV", 1, "Unresolved API concern.", "P2", "ISOLATED", null);
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Unresolved API concern.", "P2", "ISOLATED", null);
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -107,8 +104,8 @@ class ReviewTrackerE2ETest {
     @Test
     void agreedPoint_showsStrikethrough() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Agreed concern.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "agree", "Agreed.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Agreed concern.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "agree", "Agreed.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -129,8 +126,8 @@ class ReviewTrackerE2ETest {
     @Test
     void declinedPoint_showsStrikethrough() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Declined concern.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "declined", "Declined to address.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Declined concern.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "declined", "Declined to address.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -148,8 +145,8 @@ class ReviewTrackerE2ETest {
     @Test
     void counteredPoint_showsActiveStatus() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for counter.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "counter", "Counter-proposal.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for counter.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "counter", "Counter-proposal.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -161,8 +158,8 @@ class ReviewTrackerE2ETest {
     @Test
     void disputedPoint_showsDisputedStatus() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for dispute.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "dispute", "Disputed.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for dispute.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "dispute", "Disputed.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -174,8 +171,8 @@ class ReviewTrackerE2ETest {
     @Test
     void qualifiedPoint_showsActiveWithAccentBorder() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for qualify.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "qualify", "Qualified.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for qualify.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "qualify", "Qualified.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -187,8 +184,8 @@ class ReviewTrackerE2ETest {
     @Test
     void flagHuman_showsPendingHumanStatus() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Ambiguous requirement.", "P1", "SYSTEMIC", null);
-        dispatchFlag(sessionId, "REV", 1, pointId, "Cannot resolve without human input.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Ambiguous requirement.", "P1", "SYSTEMIC", null);
+        dispatchFlag(tools, sessionId, "REV", 1, pointId, "Cannot resolve without human input.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -202,12 +199,12 @@ class ReviewTrackerE2ETest {
     @Test
     void progressBar_reflectsResolutionRatio() {
         sessionId = startDebateSession(tools);
-        String p1 = dispatchRaise(sessionId, "REV", 1, "First point.", "P2", "ISOLATED", null);
-        dispatchRaise(sessionId, "REV", 1, "Second point.", "P2", "ISOLATED", null);
-        dispatchRaise(sessionId, "REV", 1, "Third point.", "P2", "ISOLATED", null);
+        String p1 = dispatchRaise(tools, messageService, sessionId, "REV", 1, "First point.", "P2", "ISOLATED", null);
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Second point.", "P2", "ISOLATED", null);
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Third point.", "P2", "ISOLATED", null);
 
         // Agree to first point only
-        dispatchResponse(sessionId, "IMP", 1, p1, "agree", "Agreed to first.");
+        dispatchResponse(tools, sessionId, "IMP", 1, p1, "agree", "Agreed to first.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 3);
 
@@ -228,12 +225,12 @@ class ReviewTrackerE2ETest {
     @Test
     void hideResolvedFilter_hidesAgreedAndDeclined() {
         sessionId = startDebateSession(tools);
-        String p1 = dispatchRaise(sessionId, "REV", 1, "First point.", "P2", "ISOLATED", null);
-        String p2 = dispatchRaise(sessionId, "REV", 1, "Second point.", "P2", "ISOLATED", null);
-        dispatchRaise(sessionId, "REV", 1, "Third point.", "P2", "ISOLATED", null);
+        String p1 = dispatchRaise(tools, messageService, sessionId, "REV", 1, "First point.", "P2", "ISOLATED", null);
+        String p2 = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Second point.", "P2", "ISOLATED", null);
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Third point.", "P2", "ISOLATED", null);
 
-        dispatchResponse(sessionId, "IMP", 1, p1, "agree", "Agreed.");
-        dispatchResponse(sessionId, "IMP", 1, p2, "declined", "Declined.");
+        dispatchResponse(tools, sessionId, "IMP", 1, p1, "agree", "Agreed.");
+        dispatchResponse(tools, sessionId, "IMP", 1, p2, "declined", "Declined.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 3);
 
@@ -248,11 +245,11 @@ class ReviewTrackerE2ETest {
     @Test
     void hideResolvedFilter_allResolved_showsMessage() {
         sessionId = startDebateSession(tools);
-        String p1 = dispatchRaise(sessionId, "REV", 1, "First point.", "P2", "ISOLATED", null);
-        String p2 = dispatchRaise(sessionId, "REV", 1, "Second point.", "P2", "ISOLATED", null);
+        String p1 = dispatchRaise(tools, messageService, sessionId, "REV", 1, "First point.", "P2", "ISOLATED", null);
+        String p2 = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Second point.", "P2", "ISOLATED", null);
 
-        dispatchResponse(sessionId, "IMP", 1, p1, "agree", "Agreed.");
-        dispatchResponse(sessionId, "IMP", 1, p2, "agree", "Agreed.");
+        dispatchResponse(tools, sessionId, "IMP", 1, p1, "agree", "Agreed.");
+        dispatchResponse(tools, sessionId, "IMP", 1, p2, "agree", "Agreed.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 2);
 
@@ -268,11 +265,11 @@ class ReviewTrackerE2ETest {
     @Test
     void sortOrder_openBeforeAgreed() {
         sessionId = startDebateSession(tools);
-        String p1 = dispatchRaise(sessionId, "REV", 1, "First raised point.", "P2", "ISOLATED", null);
-        dispatchRaise(sessionId, "REV", 1, "Second raised point.", "P2", "ISOLATED", null);
+        String p1 = dispatchRaise(tools, messageService, sessionId, "REV", 1, "First raised point.", "P2", "ISOLATED", null);
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Second raised point.", "P2", "ISOLATED", null);
 
         // Agree to the first one — it should sort after the still-open second one
-        dispatchResponse(sessionId, "IMP", 1, p1, "agree", "Agreed.");
+        dispatchResponse(tools, sessionId, "IMP", 1, p1, "agree", "Agreed.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 2);
 
@@ -288,8 +285,8 @@ class ReviewTrackerE2ETest {
     @Test
     void agentTrail_showsActionSequence() {
         sessionId = startDebateSession(tools);
-        String pointId = dispatchRaise(sessionId, "REV", 1, "Point for trail.", "P2", "ISOLATED", null);
-        dispatchResponse(sessionId, "IMP", 1, pointId, "counter", "Counter-proposal.");
+        String pointId = dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point for trail.", "P2", "ISOLATED", null);
+        dispatchResponse(tools, sessionId, "IMP", 1, pointId, "counter", "Counter-proposal.");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -304,7 +301,7 @@ class ReviewTrackerE2ETest {
     @Test
     void locationReference_displayedOnPoint() {
         sessionId = startDebateSession(tools);
-        dispatchRaise(sessionId, "REV", 1, "Point at section.", "P2", "ISOLATED", "§3.2");
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Point at section.", "P2", "ISOLATED", "§3.2");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -317,7 +314,7 @@ class ReviewTrackerE2ETest {
     @Test
     void pointSelected_firesCustomEvent() {
         sessionId = startDebateSession(tools);
-        dispatchRaise(sessionId, "REV", 1, "Clickable tracker point.", "P1", "ISOLATED", "§3.2");
+        dispatchRaise(tools, messageService, sessionId, "REV", 1, "Clickable tracker point.", "P1", "ISOLATED", "§3.2");
         loadWithDebate(page, index, sessionId);
         waitForTrackerPoints(page, 1);
 
@@ -333,64 +330,4 @@ class ReviewTrackerE2ETest {
         assertEquals("§3.2", detailMap.get("location"), "event detail should include location");
     }
 
-    // ── dispatch helpers (absorb ledger frontier schema drift) ────────────────
-
-    /**
-     * Dispatches a raise_point, returning the pointId.
-     * Catches ledger frontier exceptions — the message is persisted before the
-     * frontier query fails, so SSE delivery works regardless.
-     * When the exception swallows the return value, falls back to querying
-     * the channel's messages for the correlationId of the RAISE entry.
-     */
-    private String dispatchRaise(String sid, String role, int round, String content,
-                                 String priority, String scope, String location) {
-        try {
-            return extractPointId(tools.raisePoint(sid, role, round, content, priority, scope, location));
-        } catch (Exception e) {
-            // Ledger frontier schema drift — message already committed.
-            // The return value with pointId is lost, so query the channel messages.
-            return findLatestCorrelationId(sid);
-        }
-    }
-
-    /**
-     * Dispatches a respondTo, absorbing ledger frontier exceptions.
-     */
-    private void dispatchResponse(String sid, String role, int round,
-                                  String pointId, String entryType, String content) {
-        try {
-            tools.respondTo(sid, role, round, pointId, entryType, content);
-        } catch (Exception ignored) {
-            // Message committed before frontier query — SSE delivery works.
-        }
-    }
-
-    /**
-     * Dispatches a flagHuman, absorbing ledger frontier exceptions.
-     */
-    private void dispatchFlag(String sid, String role, int round,
-                              String pointId, String reason) {
-        try {
-            tools.flagHuman(sid, role, round, pointId, reason);
-        } catch (Exception ignored) {
-            // Message committed before frontier query — SSE delivery works.
-        }
-    }
-
-    /**
-     * Queries the channel's messages to find the correlationId of the latest RAISE entry.
-     * Used as a fallback when raisePoint throws before returning the pointId.
-     */
-    private String findLatestCorrelationId(String sid) {
-        UUID channelId = UUID.fromString(sid);
-        List<Message> messages = messageService.pollAfter(channelId, 0L, 500);
-        // Walk backwards to find the latest message with a correlationId
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            Message m = messages.get(i);
-            if (m.correlationId != null && !m.correlationId.isBlank()) {
-                return m.correlationId;
-            }
-        }
-        throw new AssertionError("No message with correlationId found in channel " + sid);
-    }
 }
