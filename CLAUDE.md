@@ -122,6 +122,8 @@ Quarkus Server (drafthouse-server-runner.jar)
   ├── MCP tools (review)     ← start_review, update_selection, query_review, end_review
   ├── MCP tools (debate)     ← start_debate, raise_point, respond_to, flag_human, get_debate_summary, end_debate, report_context
   ├── GET /api/debate/{id}/events  ← SSE debate event stream
+  ├── POST /api/debate/{id}/selection  ← store selection scope on debate session
+  ├── DELETE /api/debate/{id}/selection  ← clear selection scope
   └── GET /api/debate/sessions     ← active debate session list
 
 Browser UI (Web Component panels + workspace shell)
