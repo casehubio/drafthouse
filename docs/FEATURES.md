@@ -15,7 +15,7 @@ Planned and completed features for DraftHouse.
 - [x] Live file watch (SSE EventSource, ref-counted per path)
 - [x] Quarkus backend (FileResource, WatchResource, UiResource, CritiqueResource stub)
 - [x] `java-server.js` process manager with crash recovery
-- [x] Playwright E2E tests: happy path (9) + regression (4) + swap panels (9) + nav (7) + diff summary (8) + word diff (11) = 48 total, 46 passing, 2 intentionally skipped
+- [x] Playwright E2E tests: diff (happy path, rendering, scroll sync, swap, nav, summary, word diff, legend) + debate panel (18) + review tracker (16) + cross-panel (4) + sub-agent (2) = 273 total
 - [x] ~~Phase 2 critique panel placeholder~~ — superseded by `<drafthouse-debate>` Web Component (#51)
 
 ## Done — recent
@@ -43,7 +43,7 @@ See research spec: `docs/superpowers/specs/2026-05-26-document-review-tool-resea
 - [ ] Qhorus channels for conversation threading
 - [ ] Single LLM reviewer via LangChain4j
 - [ ] Git worktree versioning (JGit)
-- [ ] Quarkus Playwright E2E tests (replacing deleted JS Playwright suite)
+- [x] Quarkus Playwright E2E tests — debate panel, review tracker, cross-panel coordination (#55)
 
 ### Post-MVP
 
