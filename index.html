@@ -248,8 +248,8 @@ $('doc-badge').addEventListener('click', (e) => {
           const slot = btn.dataset.slot;
           diffPanel.loadFile(slot, doc.path);
           if (debateEventBus.sessionId) {
-            const currentA = slot === 'a' ? doc.path : (diffPanel._panels?.a?.path || '');
-            const currentB = slot === 'b' ? doc.path : (diffPanel._panels?.b?.path || '');
+            const currentA = slot === 'a' ? doc.path : (diffPanel.currentPath('a') || '');
+            const currentB = slot === 'b' ? doc.path : (diffPanel.currentPath('b') || '');
             if (currentA && currentB) {
               await fetch('/api/debate/' + debateEventBus.sessionId + '/comparison', {
                 method: 'POST',

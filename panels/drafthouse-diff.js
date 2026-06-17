@@ -488,6 +488,10 @@ class DraftHouseDiff extends HTMLElement {
     if (path) await this.loadFile(panel, path);
   }
 
+  currentPath(slot) {
+    return this._panels[slot]?.path || null;
+  }
+
   async loadFile(panel, path) {
     const prev = this._panels[panel].path;
     this._panels[panel].path = path;
