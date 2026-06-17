@@ -138,4 +138,59 @@ class DocumentSetTest {
         assertThat(set.currentComparison().pathA()).isEqualTo("/a.md");
         assertThat(set.currentComparison().pathB()).isEqualTo("/a.md");
     }
+
+    @Test
+    void add_concurrentSamePath_onlyOneSucceeds() throws Exception {
+        var set = new DocumentSet();
+        int threadCount = 20;
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+        var latch = new java.util.concurrent.CountDownLatch(1);
+        var futures = new java.util.ArrayList<java.util.concurrent.Future<Boolean>>();
+
+        for (int i = 0; i < threadCount; i++) {
+            futures.add(executor.submit(() -> {
+                latch.await();
+                return set.add("/race.md", "label");
+            }));
+        }
+        latch.countDown();
+
+        long trueCount = futures.stream()
+                .map(f -> { try { return f.get(); } catch (Exception e) { throw new RuntimeException(e); } })
+                .filter(b -> b)
+                .count();
+
+        executor.shutdown();
+        assertThat(trueCount).isEqualTo(1);
+        assertThat(set.documents()).hasSize(1);
+    }
+
+    @Test
+    void addAndRemove_concurrent_noExceptionOrLostUpdate() throws Exception {
+        var set = new DocumentSet();
+        int iterations = 100;
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(4);
+        var latch = new java.util.concurrent.CountDownLatch(1);
+
+        var futures = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+        for (int i = 0; i < iterations; i++) {
+            String path = "/doc-" + i + ".md";
+            futures.add(executor.submit(() -> {
+                latch.await();
+                set.add(path, "label");
+                return null;
+            }));
+            futures.add(executor.submit(() -> {
+                latch.await();
+                set.remove(path);
+                return null;
+            }));
+        }
+        latch.countDown();
+
+        for (var f : futures) {
+            assertThatCode(() -> f.get()).doesNotThrowAnyException();
+        }
+        executor.shutdown();
+    }
 }
