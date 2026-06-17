@@ -96,7 +96,7 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 | `panels/drafthouse-review-tracker.js` | `<drafthouse-review-tracker>` — review point status checklist |
 | `panels/drafthouse-context-gauge.js` | `<drafthouse-context-gauge>` — topbar context usage gauge (SSE-driven, onMeta subscriber) |
 | `server/` | Multi-module Maven parent (api/ + runtime/ + claude-agent/) |
-| `server/api/` | Pure Java domain model — no Quarkus, no Qhorus; includes `debate/` package |
+| `server/api/` | Pure Java domain model — no Quarkus, no Qhorus; includes `debate/` package, `DocumentSet`, `DebateSession` |
 | `server/runtime/` | Quarkus 3.34.3 app — all resources, Qhorus, LangChain4j |
 | `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Watch, Ui, DraftHouseMcpTools, DebateMcpTools, DraftHouseInstances, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, debate/ |
 | `server/claude-agent/` | Optional module — ClaudeAgentSdkDebateAgentProvider (stub, pending platform#55) |
@@ -121,9 +121,12 @@ Quarkus Server (drafthouse-server-runner.jar)
   ├── GET /                  ← serve index.html (from -Dui.dir)
   ├── MCP tools (review)     ← start_review, update_selection, query_review, end_review
   ├── MCP tools (debate)     ← start_debate, raise_point, respond_to, flag_human, get_debate_summary, end_debate, report_context
-  ├── GET /api/debate/{id}/events  ← SSE debate event stream
+  ├── MCP tools (documents)  ← add_document, remove_document, list_documents, set_comparison, export_debate_summary
+  ├── GET /api/debate/{id}/events  ← SSE debate event stream (includes documents-changed, comparison-changed metadata)
   ├── POST /api/debate/{id}/selection  ← store selection scope on debate session
   ├── DELETE /api/debate/{id}/selection  ← clear selection scope
+  ├── GET /api/debate/{id}/documents  ← list working set documents + current comparison
+  ├── POST /api/debate/{id}/comparison  ← browser-initiated comparison change
   └── GET /api/debate/sessions     ← active debate session list
 
 Browser UI (Web Component panels + workspace shell)

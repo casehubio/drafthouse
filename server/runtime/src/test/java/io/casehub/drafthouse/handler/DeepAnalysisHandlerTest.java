@@ -64,9 +64,10 @@ class DeepAnalysisHandlerTest {
     }
 
     private DebateSession sessionWithSpec() {
-        return new DebateSession(channelId, channelId.toString(),
-                "drafthouse/debate/d-" + channelId,
-                specFile.toString());
+        var session = new DebateSession(channelId, channelId.toString(),
+                "drafthouse/debate/d-" + channelId);
+        session.documentSet().add(specFile.toString(), "spec");
+        return session;
     }
 
     @Test
@@ -117,11 +118,11 @@ class DeepAnalysisHandlerTest {
     @Test
     void missing_spec_path_throws() {
         DebateSession sessionNoSpec = new DebateSession(channelId, channelId.toString(),
-                "drafthouse/debate/d-" + channelId, null);
+                "drafthouse/debate/d-" + channelId);
         when(registry.find(channelId)).thenReturn(Optional.of(sessionNoSpec));
 
         assertThatThrownBy(() -> handler.prepareTask(requestFor(null)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("DEEP_ANALYSIS");
+                .hasMessageContaining("document in the working set");
     }
 }

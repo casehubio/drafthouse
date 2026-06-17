@@ -22,6 +22,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.casehub.drafthouse.DocumentSet;
 import io.casehub.drafthouse.debate.DebateStreamEntry;
 import io.casehub.qhorus.runtime.message.Message;
 import io.casehub.qhorus.runtime.message.MessageService;
@@ -42,9 +43,12 @@ public class DebateEventResource {
 
     private final ConcurrentHashMap<UUID, String> pendingContextSnapshots = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, String> pendingSelections = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, String> pendingDocuments = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, String> pendingComparisons = new ConcurrentHashMap<>();
 
     record SessionInfo(String debateSessionId, String channelName, String specPath) {}
     record SelectionRequest(String side, int startLine, int endLine, String selectedText) {}
+    record ComparisonRequest(String pathA, String pathB) {}
 
     public void pushContextSnapshot(UUID channelId, ContextSnapshot snapshot) {
         try {
@@ -54,6 +58,37 @@ public class DebateEventResource {
             }
         } catch (Exception e) {
             LOG.warning("Failed to serialize context snapshot: " + e.getMessage());
+        }
+    }
+
+    public void pushDocumentsChanged(UUID channelId, DocumentSet documentSet) {
+        try {
+            StringBuilder sb = new StringBuilder("{\"type\":\"documents-changed\",\"documents\":[");
+            var docs = documentSet.documents();
+            for (int i = 0; i < docs.size(); i++) {
+                if (i > 0) sb.append(",");
+                sb.append("{\"path\":\"").append(escapeJson(docs.get(i).path()))
+                  .append("\",\"label\":\"").append(escapeJson(docs.get(i).label())).append("\"}");
+            }
+            sb.append("]}");
+            pendingDocuments.put(channelId, sb.toString());
+        } catch (Exception e) {
+            LOG.warning("Failed to build documents-changed JSON: " + e.getMessage());
+        }
+    }
+
+    public void pushComparisonChanged(UUID channelId, DocumentSet.ComparisonPair cp) {
+        try {
+            String json;
+            if (cp != null) {
+                json = "{\"type\":\"comparison-changed\",\"pathA\":\"" + escapeJson(cp.pathA())
+                        + "\",\"pathB\":\"" + escapeJson(cp.pathB()) + "\"}";
+            } else {
+                json = "{\"type\":\"comparison-changed\",\"pathA\":null,\"pathB\":null}";
+            }
+            pendingComparisons.put(channelId, json);
+        } catch (Exception e) {
+            LOG.warning("Failed to build comparison-changed JSON: " + e.getMessage());
         }
     }
 
@@ -71,17 +106,9 @@ public class DebateEventResource {
     @Produces(MediaType.SERVER_SENT_EVENTS)
     @io.smallrye.common.annotation.Blocking
     public Multi<String> events(@PathParam("debateSessionId") String debateSessionId) {
-        UUID channelId;
-        try {
-            channelId = UUID.fromString(debateSessionId);
-        } catch (IllegalArgumentException e) {
-            throw new NotFoundException("Invalid session id: " + debateSessionId);
-        }
-
-        DebateSession session = registry.find(channelId).orElse(null);
-        if (session == null) {
-            throw new NotFoundException("No active debate session: " + debateSessionId);
-        }
+        UUID channelId = parseSessionId(debateSessionId);
+        DebateSession session = registry.find(channelId)
+                .orElseThrow(() -> new NotFoundException("No active debate session: " + debateSessionId));
 
         AtomicLong lastSentId = new AtomicLong(0L);
 
@@ -109,6 +136,12 @@ public class DebateEventResource {
 
                     String pendingSel = pendingSelections.remove(channelId);
                     if (pendingSel != null) items.add(pendingSel);
+
+                    String pendingDoc = pendingDocuments.remove(channelId);
+                    if (pendingDoc != null) items.add(pendingDoc);
+
+                    String pendingComp = pendingComparisons.remove(channelId);
+                    if (pendingComp != null) items.add(pendingComp);
 
                     try {
                         List<Message> messages = messageService.pollAfter(
@@ -158,17 +191,9 @@ public class DebateEventResource {
     public jakarta.ws.rs.core.Response postSelection(
             @PathParam("debateSessionId") String debateSessionId,
             SelectionRequest request) {
-        UUID channelId;
-        try {
-            channelId = UUID.fromString(debateSessionId);
-        } catch (IllegalArgumentException e) {
-            throw new NotFoundException("Invalid session id: " + debateSessionId);
-        }
-
-        DebateSession session = registry.find(channelId).orElse(null);
-        if (session == null) {
-            throw new NotFoundException("No active debate session: " + debateSessionId);
-        }
+        UUID channelId = parseSessionId(debateSessionId);
+        DebateSession session = registry.find(channelId)
+                .orElseThrow(() -> new NotFoundException("No active debate session: " + debateSessionId));
 
         DocumentSide side;
         try {
@@ -196,20 +221,64 @@ public class DebateEventResource {
     @Produces(MediaType.APPLICATION_JSON)
     public jakarta.ws.rs.core.Response deleteSelection(
             @PathParam("debateSessionId") String debateSessionId) {
-        UUID channelId;
-        try {
-            channelId = UUID.fromString(debateSessionId);
-        } catch (IllegalArgumentException e) {
-            throw new NotFoundException("Invalid session id: " + debateSessionId);
-        }
-
-        DebateSession session = registry.find(channelId).orElse(null);
-        if (session == null) {
-            throw new NotFoundException("No active debate session: " + debateSessionId);
-        }
+        UUID channelId = parseSessionId(debateSessionId);
+        DebateSession session = registry.find(channelId)
+                .orElseThrow(() -> new NotFoundException("No active debate session: " + debateSessionId));
 
         session.updateSelection(null);
         pendingSelections.put(channelId, "{\"type\":\"selection-scope\",\"cleared\":true}");
+        return jakarta.ws.rs.core.Response.ok("{\"status\":\"ok\"}").build();
+    }
+
+    @GET
+    @Path("/{debateSessionId}/documents")
+    @Produces(MediaType.APPLICATION_JSON)
+    public jakarta.ws.rs.core.Response getDocuments(
+            @PathParam("debateSessionId") String debateSessionId) {
+        UUID channelId = parseSessionId(debateSessionId);
+        DebateSession session = registry.find(channelId)
+                .orElseThrow(() -> new NotFoundException("No active debate session: " + debateSessionId));
+
+        var docs = session.documentSet().documents();
+        StringBuilder sb = new StringBuilder("{\"documents\":[");
+        for (int i = 0; i < docs.size(); i++) {
+            if (i > 0) sb.append(",");
+            sb.append("{\"path\":\"").append(escapeJson(docs.get(i).path()))
+              .append("\",\"label\":\"").append(escapeJson(docs.get(i).label())).append("\"}");
+        }
+        sb.append("],\"currentComparison\":");
+        var cp = session.documentSet().currentComparison();
+        if (cp != null) {
+            sb.append("{\"pathA\":\"").append(escapeJson(cp.pathA()))
+              .append("\",\"pathB\":\"").append(escapeJson(cp.pathB())).append("\"}");
+        } else {
+            sb.append("null");
+        }
+        sb.append("}");
+        return jakarta.ws.rs.core.Response.ok(sb.toString()).build();
+    }
+
+    @POST
+    @Path("/{debateSessionId}/comparison")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public jakarta.ws.rs.core.Response postComparison(
+            @PathParam("debateSessionId") String debateSessionId,
+            ComparisonRequest request) {
+        UUID channelId = parseSessionId(debateSessionId);
+        DebateSession session = registry.find(channelId)
+                .orElseThrow(() -> new NotFoundException("No active debate session: " + debateSessionId));
+
+        var docs = session.documentSet().documents();
+        boolean hasA = docs.stream().anyMatch(d -> d.path().equals(request.pathA()));
+        boolean hasB = docs.stream().anyMatch(d -> d.path().equals(request.pathB()));
+        if (!hasA) return jakarta.ws.rs.core.Response.status(400)
+                .entity("{\"error\":\"path not in document set: " + escapeJson(request.pathA()) + "\"}").build();
+        if (!hasB) return jakarta.ws.rs.core.Response.status(400)
+                .entity("{\"error\":\"path not in document set: " + escapeJson(request.pathB()) + "\"}").build();
+
+        session.documentSet().setComparison(request.pathA(), request.pathB());
+        pushComparisonChanged(channelId, session.documentSet().currentComparison());
         return jakarta.ws.rs.core.Response.ok("{\"status\":\"ok\"}").build();
     }
 
@@ -224,6 +293,14 @@ public class DebateEventResource {
             pendingSelections.put(channelId, json);
         } catch (Exception e) {
             LOG.warning("Failed to build selection event JSON: " + e.getMessage());
+        }
+    }
+
+    private UUID parseSessionId(String debateSessionId) {
+        try {
+            return UUID.fromString(debateSessionId);
+        } catch (IllegalArgumentException e) {
+            throw new NotFoundException("Invalid session id: " + debateSessionId);
         }
     }
 

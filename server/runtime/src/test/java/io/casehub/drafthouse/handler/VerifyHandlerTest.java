@@ -48,6 +48,12 @@ class VerifyHandlerTest {
         f.set(handler, value);
     }
 
+    private DebateSession sessionWithSpec(String specPath) {
+        var session = new DebateSession(channelId, channelId.toString(), "ch");
+        if (specPath != null) session.documentSet().add(specPath, "spec");
+        return session;
+    }
+
     private ChannelAgentRequest requestFor(String pointId) {
         String content = DebateProtocol.META_SENTINEL
                 + "entryType=SUB_TASK_REQUEST|agent=REV|taskType=VERIFY|subTaskId=sub-1"
@@ -72,8 +78,7 @@ class VerifyHandlerTest {
     void assembles_claim_and_spec_content(@TempDir Path dir) throws IOException {
         Path specFile = dir.resolve("spec.md");
         java.nio.file.Files.writeString(specFile, "# The Spec\nThis is the spec content.");
-        when(registry.find(channelId)).thenReturn(Optional.of(
-                new DebateSession(channelId, channelId.toString(), "ch", specFile.toString())));
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionWithSpec(specFile.toString())));
         setupState("pt-1", "The claim content.");
         AgentTask task = handler.prepareTask(requestFor("pt-1"));
         assertThat(task.assembledInput()).contains("The claim content.");
@@ -81,19 +86,18 @@ class VerifyHandlerTest {
     }
 
     @Test
-    void throws_on_null_specPath() {
+    void throws_on_empty_document_set() {
         when(registry.find(channelId)).thenReturn(Optional.of(
-                new DebateSession(channelId, channelId.toString(), "ch", null)));
+                new DebateSession(channelId, channelId.toString(), "ch")));
         setupState("pt-1", "Some claim.");
         assertThatThrownBy(() -> handler.prepareTask(requestFor("pt-1")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("specPath");
+                .hasMessageContaining("document in the working set");
     }
 
     @Test
     void throws_on_null_pointId() {
-        when(registry.find(channelId)).thenReturn(Optional.of(
-                new DebateSession(channelId, channelId.toString(), "ch", "/some/spec.md")));
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionWithSpec("/some/spec.md")));
         var state = new ReviewState(Map.of(), List.of(), List.of(), Map.of());
         when(projectionService.project(any(), any())).thenReturn(new ProjectionResult<>(state, null));
         assertThatThrownBy(() -> handler.prepareTask(requestFor(null)))
@@ -124,8 +128,7 @@ class VerifyHandlerTest {
         // Invariant: VERIFY must include only the raise content, not any subsequent thread entries
         Path specFile = dir.resolve("spec.md");
         java.nio.file.Files.writeString(specFile, "# The Spec");
-        when(registry.find(channelId)).thenReturn(Optional.of(
-                new DebateSession(channelId, channelId.toString(), "ch", specFile.toString())));
+        when(registry.find(channelId)).thenReturn(Optional.of(sessionWithSpec(specFile.toString())));
         var thread = List.of(
                 new ThreadEntry("pt-1", AgentType.REV, 1, EntryType.RAISE, "The claim."),
                 new ThreadEntry(null, AgentType.IMP, 2, EntryType.DISPUTE, "Other agent content.")

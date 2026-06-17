@@ -45,6 +45,10 @@
     <span class="legend-swatch legend-del"></span><span class="legend-label">A</span>
     <span class="legend-swatch legend-ins"></span><span class="legend-label">B</span>
   </span>
+  <span id="doc-badge" class="hidden" title="Working set documents">
+    <span id="doc-count"></span>
+    <div id="doc-dropdown" class="hidden"></div>
+  </span>
   <div id="topbar-spacer"></div>
   <button id="btn-debate" title="Toggle debate panel">💬 Debate</button>
   <button id="btn-review" title="Toggle review tracker">☑ Review</button>
@@ -183,6 +187,89 @@ diffPanel.addEventListener('selection-changed', async (e) => {
   });
 });
 
+// ── Document metadata event subscriber ─────────────────────────────
+debateEventBus.subscribe({
+  onEntries() {},
+  onMeta(data) {
+    if (data.type === 'comparison-changed') {
+      if (data.pathA && data.pathB) {
+        diffPanel.loadFile('a', data.pathA);
+        diffPanel.loadFile('b', data.pathB);
+      }
+    }
+    if (data.type === 'documents-changed') {
+      updateDocBadge(data.documents || []);
+    }
+  }
+});
+
+// ── Document badge and dropdown ────────────────────────────────────
+let currentDocuments = [];
+
+function updateDocBadge(docs) {
+  currentDocuments = docs;
+  const badge = $('doc-badge');
+  const count = $('doc-count');
+  if (docs.length > 1) {
+    badge.classList.remove('hidden');
+    count.textContent = docs.length + ' docs';
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+$('doc-badge').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const dd = $('doc-dropdown');
+  dd.classList.toggle('hidden');
+  if (!dd.classList.contains('hidden')) {
+    dd.innerHTML = '';
+    for (const doc of currentDocuments) {
+      const row = document.createElement('div');
+      row.className = 'doc-row';
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'doc-label';
+      labelSpan.textContent = doc.label;
+      const pathSpan = document.createElement('span');
+      pathSpan.className = 'doc-path';
+      pathSpan.textContent = doc.path;
+      const btnA = document.createElement('button');
+      btnA.className = 'doc-assign';
+      btnA.dataset.slot = 'a';
+      btnA.textContent = 'A';
+      const btnB = document.createElement('button');
+      btnB.className = 'doc-assign';
+      btnB.dataset.slot = 'b';
+      btnB.textContent = 'B';
+      row.append(labelSpan, pathSpan, btnA, btnB);
+      row.querySelectorAll('.doc-assign').forEach(btn => {
+        btn.addEventListener('click', async (ev) => {
+          ev.stopPropagation();
+          const slot = btn.dataset.slot;
+          diffPanel.loadFile(slot, doc.path);
+          if (debateEventBus.sessionId) {
+            const currentA = slot === 'a' ? doc.path : (diffPanel._panels?.a?.path || '');
+            const currentB = slot === 'b' ? doc.path : (diffPanel._panels?.b?.path || '');
+            if (currentA && currentB) {
+              await fetch('/api/debate/' + debateEventBus.sessionId + '/comparison', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pathA: currentA, pathB: currentB })
+              });
+            }
+          }
+          dd.classList.add('hidden');
+        });
+      });
+      dd.appendChild(row);
+    }
+  }
+});
+
+document.addEventListener('click', () => {
+  $('doc-dropdown').classList.add('hidden');
+});
+
 // ── Session discovery polling (§7a) ─────────────────────────────────
 let discoveryInterval = null;
 
@@ -190,6 +277,18 @@ function connectDebateSession(sessionId) {
   debateEventBus.connect(sessionId);
   debatePanel.configure({ debateSessionId: sessionId });
   reviewPanel.configure({ debateSessionId: sessionId });
+  // Fetch initial document set
+  fetch('/api/debate/' + sessionId + '/documents')
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      updateDocBadge(data.documents || []);
+      if (data.currentComparison) {
+        diffPanel.loadFile('a', data.currentComparison.pathA);
+        diffPanel.loadFile('b', data.currentComparison.pathB);
+      }
+    })
+    .catch(() => {});
 }
 
 function showSessionPicker(sessions) {

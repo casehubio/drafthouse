@@ -14,6 +14,12 @@ class DebateSessionTest {
     private static final String SESSION_ID = CHANNEL_ID.toString();
     private static final String NAME       = "drafthouse/debate/d-" + SESSION_ID;
 
+    private static DebateSession sessionWithSpec(String specPath) {
+        var session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME);
+        if (specPath != null) session.documentSet().add(specPath, "spec");
+        return session;
+    }
+
     // ── instanceId() — static naming convention ───────────────────────────────
 
     @Test
@@ -36,7 +42,7 @@ class DebateSessionTest {
 
     @Test
     void registerIfAbsent_firstCall_invokesSupplierAndStoresId() {
-        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, "spec.md");
+        DebateSession session = sessionWithSpec("spec.md");
         AtomicInteger calls = new AtomicInteger();
 
         String id = session.registerIfAbsent(AgentType.REV, () -> {
@@ -51,7 +57,7 @@ class DebateSessionTest {
 
     @Test
     void registerIfAbsent_secondCall_returnsSameIdWithoutInvokingSupplier() {
-        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, null);
+        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME);
         session.registerIfAbsent(AgentType.IMP, () -> "imp-id");
 
         AtomicInteger calls = new AtomicInteger();
@@ -66,7 +72,7 @@ class DebateSessionTest {
 
     @Test
     void registerIfAbsent_supplierThrows_keyRemainsAbsent_nextCallRetries() {
-        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, null);
+        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME);
         AtomicInteger calls = new AtomicInteger();
 
         // First call throws
@@ -91,7 +97,7 @@ class DebateSessionTest {
 
     @Test
     void participants_returnsUnmodifiableView() {
-        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, null);
+        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME);
         session.registerIfAbsent(AgentType.REV, () -> "rev-id");
 
         assertThatThrownBy(() -> session.participants().put(AgentType.IMP, "imp-id"))
@@ -100,7 +106,7 @@ class DebateSessionTest {
 
     @Test
     void participants_reflectsRegisteredRoles() {
-        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, null);
+        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME);
         session.registerIfAbsent(AgentType.REV, () -> "rev");
         session.registerIfAbsent(AgentType.IMP, () -> "imp");
 
@@ -112,7 +118,7 @@ class DebateSessionTest {
 
     @Test
     void instanceIdFor_returnsNullBeforeRegistration() {
-        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, null);
+        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME);
         assertThat(session.instanceIdFor(AgentType.MODERATOR)).isNull();
     }
 
@@ -120,18 +126,29 @@ class DebateSessionTest {
 
     @Test
     void getters_returnConstructorValues() {
-        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, "my-spec.md");
+        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME);
         assertThat(session.channelId()).isEqualTo(CHANNEL_ID);
         assertThat(session.debateSessionId()).isEqualTo(SESSION_ID);
         assertThat(session.channelName()).isEqualTo(NAME);
+    }
+
+    @Test
+    void specPath_derivedFromDocumentSetPrimary() {
+        DebateSession session = sessionWithSpec("my-spec.md");
         assertThat(session.specPath()).isEqualTo("my-spec.md");
+    }
+
+    @Test
+    void specPath_nullWhenNoDocuments() {
+        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME);
+        assertThat(session.specPath()).isNull();
     }
 
     // ── contextTracker() ──────────────────────────────────────────────────
 
     @Test
     void contextTracker_isInitializedOnConstruction() {
-        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, "spec.md");
+        DebateSession session = sessionWithSpec("spec.md");
         assertThat(session.contextTracker()).isNotNull();
         var snap = session.contextTracker().snapshot(800_000, 80.0);
         assertThat(snap.serverContributionChars()).isZero();
@@ -140,7 +157,7 @@ class DebateSessionTest {
 
     @Test
     void contextTracker_accumulatesAcrossMultipleCalls() {
-        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, "spec.md");
+        DebateSession session = sessionWithSpec("spec.md");
         session.contextTracker().addContribution(1000);
         session.contextTracker().addContribution(2000);
         var snap = session.contextTracker().snapshot(800_000, 80.0);

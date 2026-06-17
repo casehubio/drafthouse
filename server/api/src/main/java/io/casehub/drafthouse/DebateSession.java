@@ -23,16 +23,24 @@ public class DebateSession {
     private final String debateSessionId;
     private final String channelName;
     private final ConcurrentHashMap<AgentType, String> participants = new ConcurrentHashMap<>();
-    private final String specPath;
+    private final DocumentSet documentSet;
     private final ContextTracker contextTracker = new ContextTracker();
     private volatile SelectionScope currentSelection;
 
     public DebateSession(final UUID channelId, final String debateSessionId,
-                         final String channelName, final String specPath) {
+                         final String channelName) {
         this.channelId       = channelId;
         this.debateSessionId = debateSessionId;
         this.channelName     = channelName;
-        this.specPath        = specPath;
+        this.documentSet     = new DocumentSet();
+    }
+
+    public DebateSession(final UUID channelId, final String debateSessionId,
+                         final String channelName, final DocumentSet documentSet) {
+        this.channelId       = channelId;
+        this.debateSessionId = debateSessionId;
+        this.channelName     = channelName;
+        this.documentSet     = documentSet;
     }
 
     /**
@@ -70,7 +78,8 @@ public class DebateSession {
     public UUID channelId()         { return channelId; }
     public String debateSessionId() { return debateSessionId; }
     public String channelName()     { return channelName; }
-    public String specPath()        { return specPath; }
+    public String specPath()        { return documentSet.primary().map(DocumentSet.DocumentEntry::path).orElse(null); }
+    public DocumentSet documentSet() { return documentSet; }
     public ContextTracker contextTracker() { return contextTracker; }
 
     public void updateSelection(SelectionScope selection) {

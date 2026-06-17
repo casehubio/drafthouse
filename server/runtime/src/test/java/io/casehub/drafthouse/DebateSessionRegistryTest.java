@@ -27,7 +27,8 @@ class DebateSessionRegistryTest {
     void activeSessions_afterPut_containsSession() {
         UUID channelId = UUID.randomUUID();
         DebateSession session = new DebateSession(channelId, channelId.toString(),
-                "drafthouse/debate/d-test", "test-spec.md");
+                "drafthouse/debate/d-test");
+        session.documentSet().add("test-spec.md", "spec");
         registry.put(session);
 
         Collection<DebateSession> sessions = registry.activeSessions();
@@ -39,7 +40,8 @@ class DebateSessionRegistryTest {
     void activeSessions_afterRemove_doesNotContainSession() {
         UUID channelId = UUID.randomUUID();
         DebateSession session = new DebateSession(channelId, channelId.toString(),
-                "drafthouse/debate/d-test", "test-spec.md");
+                "drafthouse/debate/d-test");
+        session.documentSet().add("test-spec.md", "spec");
         registry.put(session);
         registry.remove(channelId);
 

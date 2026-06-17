@@ -28,12 +28,14 @@ Planned and completed features for DraftHouse.
 - [x] **Debate event rendering** (#51) — SSE debate events rendered as conversation feed grouped by round, with visual treatment per EntryType (colour-coded borders, priority badges, scope tags)
 - [x] **Review point tracker** (#51) — status-derived checklist with progress bar, agent trail, strikethrough on AGREED/DECLINED, show/hide resolved filter
 - [x] **Workspace shell** (#51) — fixed-slot layout with panel toggles, session discovery polling, cross-panel point-selected event routing
+- [x] **Keyboard shortcuts overlay** (#63) — `?` toggles overlay; Escape/backdrop dismiss; INPUT/TEXTAREA/SELECT/contenteditable guard with shadow DOM traversal
+- [x] **Multi-document working sets** (#59) — `DocumentSet` on `DebateSession`; `add_document`, `remove_document`, `list_documents`, `set_comparison` MCP tools; REST + SSE for browser sync; topbar document dropdown
+- [x] **Export debate summary** (#65) — `export_debate_summary` MCP tool writes summary to markdown file; same render path as `get_debate_summary`
 
 ## Planned
 
 ### Diff viewer completeness
 - [ ] **Improved scroll sync** — heading-anchor interpolation with percentage fallback (issue #3)
-- [ ] **Diff legend** — small colour key (red = A only, green = B only) somewhere unobtrusive
 
 ### Phase 2 — DraftHouse MVP
 
@@ -50,5 +52,5 @@ See research spec: `docs/superpowers/specs/2026-05-26-document-review-tool-resea
 - [ ] Selection-scoped conversation channels
 - [ ] Multi-LLM reviewers with personality library
 - [ ] ReviewStrategy SPI
-- [ ] Multi-document working sets
 - [ ] GraalVM native image
+- [ ] Unified diff view mode (#66)

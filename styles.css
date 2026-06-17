@@ -109,6 +109,35 @@ button.active { background: var(--accent); border-color: var(--accent); color: v
 .legend-ins { background: rgba(34, 197, 94, 0.35); }
 .legend-label { padding-right: 4px; }
 
+/* ── Document badge + dropdown ── */
+#doc-badge {
+  position: relative; cursor: pointer; font-size: 11px; color: var(--sepia);
+  padding: 4px 8px; border: 1px solid var(--border); border-radius: 2px;
+  background: var(--chrome);
+}
+#doc-badge.hidden { display: none; }
+#doc-dropdown {
+  position: absolute; top: calc(100% + 4px); right: 0; min-width: 320px;
+  background: var(--chrome); border: 1px solid var(--border); border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 200; padding: 4px 0;
+}
+#doc-dropdown.hidden { display: none; }
+.doc-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 12px;
+}
+.doc-row:hover { background: var(--bg); }
+.doc-label { font-weight: 600; color: var(--ink); min-width: 60px; }
+.doc-path {
+  flex: 1; color: var(--muted); font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.doc-assign {
+  padding: 2px 8px; font-size: 10px; min-width: 24px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 2px;
+  cursor: pointer; color: var(--sepia);
+}
+.doc-assign:hover { background: var(--accent-tint); border-color: var(--accent); color: var(--accent); }
+
 /* ── Keyboard shortcuts overlay ── */
 #shortcuts-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999;

@@ -75,7 +75,8 @@ public class DebateMcpTools {
             String debateSessionId = channel.id.toString();
             String resolvedName = channel.name;
 
-            session = new DebateSession(channel.id, debateSessionId, resolvedName, specPath);
+            session = new DebateSession(channel.id, debateSessionId, resolvedName);
+            session.documentSet().add(specPath, "spec");
             registry.put(session);
 
             // Register REV and IMP eagerly; all other roles lazy-register on first use via sender()
@@ -243,6 +244,8 @@ public class DebateMcpTools {
 
         var result = projectionService.project(session.channelId(), debateProjection);
         String summary = debateProjection.render(result);
+
+        summary = appendWorkingSet(summary, session);
 
         SelectionScope sel = session.currentSelection();
         if (sel != null) {
@@ -430,7 +433,8 @@ public class DebateMcpTools {
                     ChannelSemantic.APPEND, null);
             String newSessionId = newChannel.id.toString();
 
-            newSession = new DebateSession(newChannel.id, newSessionId, newChannel.name, original.specPath());
+            newSession = new DebateSession(newChannel.id, newSessionId, newChannel.name,
+                    DocumentSet.copyOf(original.documentSet()));
             registry.put(newSession);
             channelGateway.initChannel(newChannel.id, new ChannelRef(newChannel.id, newChannel.name));
 
@@ -515,6 +519,88 @@ public class DebateMcpTools {
         }
     }
 
+    @Tool(name = "add_document",
+          description = "Add a document to the debate session's working set. Returns error if path already exists.")
+    public String addDocument(
+            @ToolArg(description = "debateSessionId returned by start_debate") String debateSessionId,
+            @ToolArg(description = "Absolute path to the document") String path,
+            @ToolArg(description = "Label for this document (e.g. 'spec', 'impl', 'test')") String label) {
+        DebateSession session = resolveSession(debateSessionId);
+        if (session == null) return sessionError(debateSessionId);
+
+        boolean added = session.documentSet().add(path, label);
+        if (!added) {
+            return "error: path already in document set: " + path;
+        }
+        debateEventResource.pushDocumentsChanged(session.channelId(), session.documentSet());
+        int count = session.documentSet().documents().size();
+        return "{\"status\":\"added\",\"documentCount\":" + count + "}";
+    }
+
+    @Tool(name = "remove_document",
+          description = "Remove a document from the working set. Cannot remove the primary (first) document.")
+    public String removeDocument(
+            @ToolArg(description = "debateSessionId returned by start_debate") String debateSessionId,
+            @ToolArg(description = "Path of the document to remove") String path) {
+        DebateSession session = resolveSession(debateSessionId);
+        if (session == null) return sessionError(debateSessionId);
+
+        if (session.documentSet().primary().isPresent()
+                && session.documentSet().primary().get().path().equals(path)) {
+            return "error: cannot remove primary document: " + path;
+        }
+
+        var comparisonBefore = session.documentSet().currentComparison();
+        if (!session.documentSet().remove(path)) {
+            return "error: path not in document set: " + path;
+        }
+        var comparisonAfter = session.documentSet().currentComparison();
+
+        debateEventResource.pushDocumentsChanged(session.channelId(), session.documentSet());
+        if (comparisonBefore != null && comparisonAfter == null) {
+            debateEventResource.pushComparisonChanged(session.channelId(), null);
+        }
+
+        int count = session.documentSet().documents().size();
+        return "{\"status\":\"removed\",\"documentCount\":" + count + "}";
+    }
+
+    @Tool(name = "list_documents",
+          description = "List all documents in the working set and the current comparison pair.")
+    public String listDocuments(
+            @ToolArg(description = "debateSessionId returned by start_debate") String debateSessionId) {
+        DebateSession session = resolveSession(debateSessionId);
+        if (session == null) return sessionError(debateSessionId);
+
+        return buildDocumentsJson(session);
+    }
+
+    @Tool(name = "set_comparison",
+          description = "Set which two documents the browser diff viewer should compare. Both paths must be in the working set.")
+    public String setComparison(
+            @ToolArg(description = "debateSessionId returned by start_debate") String debateSessionId,
+            @ToolArg(description = "Path for the A (left) side") String pathA,
+            @ToolArg(description = "Path for the B (right) side") String pathB) {
+        DebateSession session = resolveSession(debateSessionId);
+        if (session == null) return sessionError(debateSessionId);
+
+        var docs = session.documentSet().documents();
+        boolean hasA = docs.stream().anyMatch(d -> d.path().equals(pathA));
+        boolean hasB = docs.stream().anyMatch(d -> d.path().equals(pathB));
+
+        if (!hasA) {
+            return "error: pathA not in document set: " + pathA;
+        }
+        if (!hasB) {
+            return "error: pathB not in document set: " + pathB;
+        }
+
+        session.documentSet().setComparison(pathA, pathB);
+        debateEventResource.pushComparisonChanged(session.channelId(), session.documentSet().currentComparison());
+        return "{\"status\":\"set\",\"pathA\":" + jsonString(pathA)
+                + ",\"pathB\":" + jsonString(pathB) + "}";
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private void trackAndPush(DebateSession session, long contentChars) {
@@ -527,6 +613,45 @@ public class DebateMcpTools {
         } catch (Exception e) {
             LOG.warning("Context push failed for " + session.debateSessionId() + ": " + e.getMessage());
         }
+    }
+
+    private String buildDocumentsJson(DebateSession session) {
+        var docs = session.documentSet().documents();
+        StringBuilder sb = new StringBuilder("{\"documents\":[");
+        for (int i = 0; i < docs.size(); i++) {
+            if (i > 0) sb.append(",");
+            sb.append("{\"path\":").append(jsonString(docs.get(i).path()))
+              .append(",\"label\":").append(jsonString(docs.get(i).label())).append("}");
+        }
+        sb.append("],\"currentComparison\":");
+        var cp = session.documentSet().currentComparison();
+        if (cp != null) {
+            sb.append("{\"pathA\":").append(jsonString(cp.pathA()))
+              .append(",\"pathB\":").append(jsonString(cp.pathB())).append("}");
+        } else {
+            sb.append("null");
+        }
+        sb.append("}");
+        return sb.toString();
+    }
+
+    private String appendWorkingSet(String summary, DebateSession session) {
+        var docs = session.documentSet().documents();
+        if (docs.size() <= 1) return summary;
+        StringBuilder sb = new StringBuilder(summary);
+        sb.append("\n\n## Working Set\n");
+        for (var doc : docs) {
+            sb.append("- **").append(doc.label()).append("** — `").append(doc.path()).append("`\n");
+        }
+        var cp = session.documentSet().currentComparison();
+        if (cp != null) {
+            String labelA = docs.stream().filter(d -> d.path().equals(cp.pathA()))
+                    .map(DocumentSet.DocumentEntry::label).findFirst().orElse(cp.pathA());
+            String labelB = docs.stream().filter(d -> d.path().equals(cp.pathB()))
+                    .map(DocumentSet.DocumentEntry::label).findFirst().orElse(cp.pathB());
+            sb.append("\n**Comparing:** ").append(labelA).append(" ↔ ").append(labelB).append("\n");
+        }
+        return sb.toString();
     }
 
     /** Renders a bounded state, returning a custom message when the state has no debate content. */
