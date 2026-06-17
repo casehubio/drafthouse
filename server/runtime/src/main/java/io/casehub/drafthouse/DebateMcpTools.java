@@ -572,7 +572,7 @@ public class DebateMcpTools {
         DebateSession session = resolveSession(debateSessionId);
         if (session == null) return sessionError(debateSessionId);
 
-        return buildDocumentsJson(session);
+        return DocumentSetJson.documentsAndComparisonToJson(session.documentSet());
     }
 
     @Tool(name = "set_comparison",
@@ -655,26 +655,6 @@ public class DebateMcpTools {
         } catch (Exception e) {
             LOG.warning("Context push failed for " + session.debateSessionId() + ": " + e.getMessage());
         }
-    }
-
-    private String buildDocumentsJson(DebateSession session) {
-        var docs = session.documentSet().documents();
-        StringBuilder sb = new StringBuilder("{\"documents\":[");
-        for (int i = 0; i < docs.size(); i++) {
-            if (i > 0) sb.append(",");
-            sb.append("{\"path\":").append(jsonString(docs.get(i).path()))
-              .append(",\"label\":").append(jsonString(docs.get(i).label())).append("}");
-        }
-        sb.append("],\"currentComparison\":");
-        var cp = session.documentSet().currentComparison();
-        if (cp != null) {
-            sb.append("{\"pathA\":").append(jsonString(cp.pathA()))
-              .append(",\"pathB\":").append(jsonString(cp.pathB())).append("}");
-        } else {
-            sb.append("null");
-        }
-        sb.append("}");
-        return sb.toString();
     }
 
     private String appendWorkingSet(String summary, DebateSession session) {

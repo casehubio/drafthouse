@@ -63,15 +63,9 @@ public class DebateEventResource {
 
     public void pushDocumentsChanged(UUID channelId, DocumentSet documentSet) {
         try {
-            StringBuilder sb = new StringBuilder("{\"type\":\"documents-changed\",\"documents\":[");
-            var docs = documentSet.documents();
-            for (int i = 0; i < docs.size(); i++) {
-                if (i > 0) sb.append(",");
-                sb.append("{\"path\":\"").append(escapeJson(docs.get(i).path()))
-                  .append("\",\"label\":\"").append(escapeJson(docs.get(i).label())).append("\"}");
-            }
-            sb.append("]}");
-            pendingDocuments.put(channelId, sb.toString());
+            String json = "{\"type\":\"documents-changed\",\"documents\":"
+                    + DocumentSetJson.documentsToJson(documentSet.documents()) + "}";
+            pendingDocuments.put(channelId, json);
         } catch (Exception e) {
             LOG.warning("Failed to build documents-changed JSON: " + e.getMessage());
         }
@@ -239,23 +233,8 @@ public class DebateEventResource {
         DebateSession session = registry.find(channelId)
                 .orElseThrow(() -> new NotFoundException("No active debate session: " + debateSessionId));
 
-        var docs = session.documentSet().documents();
-        StringBuilder sb = new StringBuilder("{\"documents\":[");
-        for (int i = 0; i < docs.size(); i++) {
-            if (i > 0) sb.append(",");
-            sb.append("{\"path\":\"").append(escapeJson(docs.get(i).path()))
-              .append("\",\"label\":\"").append(escapeJson(docs.get(i).label())).append("\"}");
-        }
-        sb.append("],\"currentComparison\":");
-        var cp = session.documentSet().currentComparison();
-        if (cp != null) {
-            sb.append("{\"pathA\":\"").append(escapeJson(cp.pathA()))
-              .append("\",\"pathB\":\"").append(escapeJson(cp.pathB())).append("\"}");
-        } else {
-            sb.append("null");
-        }
-        sb.append("}");
-        return jakarta.ws.rs.core.Response.ok(sb.toString()).build();
+        return jakarta.ws.rs.core.Response.ok(
+                DocumentSetJson.documentsAndComparisonToJson(session.documentSet())).build();
     }
 
     @POST
