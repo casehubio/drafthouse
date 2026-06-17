@@ -269,12 +269,40 @@ document.addEventListener('mouseup', () => {
 });
 
 // ── Keyboard shortcuts ──────────────────────────────────────────────
+function isEditable(el) {
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable) return true;
+  // Shadow DOM: e.target is the host, not the inner focused element.
+  // Walk activeElement through shadow roots to find the real focused element.
+  let active = document.activeElement;
+  while (active && active.shadowRoot && active.shadowRoot.activeElement) {
+    active = active.shadowRoot.activeElement;
+  }
+  if (active && active !== el) {
+    const t = active.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || active.isContentEditable) return true;
+  }
+  return false;
+}
+
+function toggleShortcutsOverlay() {
+  $('shortcuts-overlay').classList.toggle('hidden');
+  $('shortcuts-backdrop').classList.toggle('hidden');
+}
+
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape' && !$('shortcuts-overlay').classList.contains('hidden')) {
+    toggleShortcutsOverlay();
+    return;
+  }
+  if (isEditable(e.target)) return;
+  if (e.key === '?') { toggleShortcutsOverlay(); return; }
   if (e.key === 's' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); diffPanel.toggleSync(); updateSyncButton(); }
   if (e.key === 'n') { diffPanel.nextDiff(); updateDiffUI(); }
   if (e.key === 'p') { diffPanel.prevDiff(); updateDiffUI(); }
 });
+
+$('shortcuts-backdrop').addEventListener('click', toggleShortcutsOverlay);
 
 // ── Electron IPC (if running in Electron shell) ─────────────────────
 if (isElectron) {
@@ -294,5 +322,18 @@ document.addEventListener('drop', e => e.preventDefault());
 // Initial slot visibility
 updateSlotVisibility();
 </script>
+
+<!-- ── Keyboard shortcuts overlay ── -->
+<div id="shortcuts-backdrop" class="hidden"></div>
+<div id="shortcuts-overlay" class="hidden">
+  <h3>Keyboard Shortcuts</h3>
+  <table>
+    <tr><td><kbd>n</kbd></td><td>Next diff</td></tr>
+    <tr><td><kbd>p</kbd></td><td>Previous diff</td></tr>
+    <tr><td><kbd>⌘/Ctrl+S</kbd></td><td>Toggle scroll sync</td></tr>
+    <tr><td><kbd>?</kbd></td><td>Show/hide shortcuts</td></tr>
+  </table>
+</div>
+
 </body>
 </html>
