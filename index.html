@@ -37,6 +37,7 @@
   <div class="sep"></div>
   <button id="btn-sync" class="active" title="Sync scroll between panels">⟺ Sync</button>
   <button id="btn-swap" title="Swap panels A↔B" disabled style="opacity:.4">⇄ Swap</button>
+  <button id="btn-view-mode" title="Toggle split/unified view (u)">⫏ Split</button>
   <button id="btn-prev" title="Previous diff (p)" disabled style="opacity:.4">↑</button>
   <button id="btn-next" title="Next diff (n)" disabled style="opacity:.4">↓</button>
   <span id="diff-counter" style="font-size:11px;color:#a09080;padding:0 4px;min-width:36px;display:inline-block;text-align:center">— / —</span>
@@ -142,6 +143,11 @@ $('btn-prev').addEventListener('click', () => {
 $('btn-next').addEventListener('click', () => {
   diffPanel.nextDiff();
   updateDiffUI();
+});
+$('btn-view-mode').addEventListener('click', () => {
+  const mode = diffPanel.viewMode === 'split' ? 'unified' : 'split';
+  diffPanel.setViewMode(mode);
+  $('btn-view-mode').textContent = mode === 'split' ? '⫏ Split' : '☰ Unified';
 });
 
 // Listen for diff-updated events from the panel
@@ -399,6 +405,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 's' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); diffPanel.toggleSync(); updateSyncButton(); }
   if (e.key === 'n') { diffPanel.nextDiff(); updateDiffUI(); }
   if (e.key === 'p') { diffPanel.prevDiff(); updateDiffUI(); }
+  if (e.key === 'u') { $('btn-view-mode').click(); }
 });
 
 $('shortcuts-backdrop').addEventListener('click', toggleShortcutsOverlay);
@@ -429,6 +436,7 @@ updateSlotVisibility();
   <table>
     <tr><td><kbd>n</kbd></td><td>Next diff</td></tr>
     <tr><td><kbd>p</kbd></td><td>Previous diff</td></tr>
+    <tr><td><kbd>u</kbd></td><td>Toggle split/unified view</td></tr>
     <tr><td><kbd>⌘/Ctrl+S</kbd></td><td>Toggle scroll sync</td></tr>
     <tr><td><kbd>?</kbd></td><td>Show/hide shortcuts</td></tr>
   </table>

@@ -198,6 +198,40 @@ sheet.replaceSync(/* css */`
   /* ── Word-level diff highlights ── */
   mark.diff-word-a { background: rgba(239,68,68,0.35); border-radius: 2px; padding: 0 1px; color: inherit; }
   mark.diff-word-b { background: rgba(34,197,94,0.35); border-radius: 2px; padding: 0 1px; color: inherit; }
+
+  /* ── Unified diff blocks ── */
+  .diff-unified-del {
+    border-left: 3px solid #ef4444;
+    padding: 4px 12px 4px 28px;
+    margin: 4px 0;
+    background: rgba(239, 68, 68, 0.06);
+    position: relative;
+  }
+  .diff-unified-ins {
+    border-left: 3px solid #22c55e;
+    padding: 4px 12px 4px 28px;
+    margin: 4px 0;
+    background: rgba(34, 197, 94, 0.06);
+    position: relative;
+  }
+  .diff-unified-del::before {
+    content: '−';
+    position: absolute;
+    left: 10px;
+    top: 4px;
+    color: #ef4444;
+    font-weight: 700;
+    font-size: 11px;
+  }
+  .diff-unified-ins::before {
+    content: '+';
+    position: absolute;
+    left: 10px;
+    top: 4px;
+    color: #22c55e;
+    font-weight: 700;
+    font-size: 11px;
+  }
 `);
 
 // ── Component ───────────────────────────────────────────────────────
@@ -208,6 +242,7 @@ class DraftHouseDiff extends HTMLElement {
               b: { path: null, content: null, label: 'File B' } };
   _watchers = {};        // path -> EventSource
   _syncEnabled = true;
+  _viewMode = 'split';
   _syncing = false;
   _dragging = false;
   _lastChunks = [];
@@ -331,9 +366,20 @@ class DraftHouseDiff extends HTMLElement {
           if (children[i].contains(range.endContainer) ||
               children[i] === range.endContainer) endLine = i;
         }
+        let reportedSide = side.toUpperCase();
+        if (this._viewMode === 'unified') {
+          let node = range.startContainer;
+          while (node && node !== render) {
+            if (node.classList) {
+              if (node.classList.contains('diff-unified-del')) { reportedSide = 'A'; break; }
+              if (node.classList.contains('diff-unified-ins')) { reportedSide = 'B'; break; }
+            }
+            node = node.parentNode;
+          }
+        }
         this.dispatchEvent(new CustomEvent('selection-changed', {
           bubbles: true,
-          detail: { side: side.toUpperCase(), startLine, endLine, selectedText: sel.toString() },
+          detail: { side: reportedSide, startLine, endLine, selectedText: sel.toString() },
         }));
       });
     }
@@ -492,6 +538,28 @@ class DraftHouseDiff extends HTMLElement {
     return this._panels[slot]?.path || null;
   }
 
+  get viewMode() { return this._viewMode; }
+
+  setViewMode(mode) {
+    if (mode !== 'split' && mode !== 'unified') return;
+    if (mode === this._viewMode) return;
+    this._viewMode = mode;
+
+    const panelB = this._$('panel-b');
+    const divider = this._$('divider');
+
+    if (mode === 'unified') {
+      panelB.style.display = 'none';
+      divider.style.display = 'none';
+    } else {
+      panelB.style.display = '';
+      divider.style.display = '';
+      this._syncPanelContent('a');
+      this._syncPanelContent('b');
+    }
+    this._updateDiffMap();
+  }
+
   async loadFile(panel, path) {
     const prev = this._panels[panel].path;
     this._panels[panel].path = path;
@@ -572,6 +640,53 @@ class DraftHouseDiff extends HTMLElement {
     this._panels[panel].content = content;
     this._syncPanelContent(panel);
     this._updateDiffMap();
+  }
+
+  _renderUnified(aLines, bLines, chunks) {
+    const renderA = this._$('render-a');
+    const renderB = this._$('render-b');
+
+    // Clear render-b to prevent stale data-diff-chunk attributes from
+    // poisoning _chunkOutOfView, nextDiff/prevDiff, and scrollToLocation
+    renderB.innerHTML = '';
+    this._$('empty-b').classList.add('hidden');
+
+    // Hide empty-a since we are rendering content
+    this._$('empty-a').classList.add('hidden');
+
+    let html = '';
+    chunks.forEach((c, ci) => {
+      if (c.op === 'eq') {
+        // B-side lines — content identical; convention: show newer version
+        const text = bLines.slice(c.bStart, c.bEnd).join('\n');
+        html += marked.parse(text);
+      } else if (c.op === 'del') {
+        const text = aLines.slice(c.aStart, c.aEnd).join('\n');
+        html += `<div class="diff-unified-del" data-diff-chunk="${ci}">${marked.parse(text)}</div>`;
+      } else if (c.op === 'ins') {
+        const text = bLines.slice(c.bStart, c.bEnd).join('\n');
+        html += `<div class="diff-unified-ins" data-diff-chunk="${ci}">${marked.parse(text)}</div>`;
+      } else if (c.op === 'mod') {
+        const delText = aLines.slice(c.aStart, c.aEnd).join('\n');
+        const insText = bLines.slice(c.bStart, c.bEnd).join('\n');
+        html += `<div class="diff-unified-del" data-diff-chunk="${ci}">${marked.parse(delText)}</div>`;
+        html += `<div class="diff-unified-ins" data-diff-chunk="${ci}">${marked.parse(insText)}</div>`;
+      }
+    });
+    renderA.innerHTML = html;
+
+    // Word-level highlights inside mod blocks
+    chunks.forEach((c, ci) => {
+      if (c.op !== 'mod') return;
+      const els = renderA.querySelectorAll(`[data-diff-chunk="${ci}"]`);
+      if (els.length < 2) return;
+      const elDel = els[0]; // diff-unified-del
+      const elIns = els[1]; // diff-unified-ins
+      if (elDel.tagName === 'PRE' || elIns.tagName === 'PRE') return;
+      const { rangesA, rangesB } = this._wordDiff(elDel.textContent, elIns.textContent);
+      this._applyWordHighlights(elDel, rangesA, 'diff-word-a');
+      this._applyWordHighlights(elIns, rangesB, 'diff-word-b');
+    });
   }
 
   _updateSwapButton() {
@@ -776,14 +891,18 @@ class DraftHouseDiff extends HTMLElement {
     this._lastChunks = chunks;
     this._lastTotalA = a.length;
     this._lastTotalB = b.length;
-    this._drawDiffMap(a.length, b.length, chunks);
-    this._annotateRendered('a', this._panels.a.content, chunks);
-    this._annotateRendered('b', this._panels.b.content, chunks);
-    this._annotateWordDiffs(chunks);
-    this._buildScrollAnchors();
-    this._currentChunkIdx = -1;
 
-    // Emit diff-updated event
+    if (this._viewMode === 'unified') {
+      this._renderUnified(a, b, chunks);
+    } else {
+      this._drawDiffMap(a.length, b.length, chunks);
+      this._annotateRendered('a', this._panels.a.content, chunks);
+      this._annotateRendered('b', this._panels.b.content, chunks);
+      this._annotateWordDiffs(chunks);
+      this._buildScrollAnchors();
+    }
+
+    this._currentChunkIdx = -1;
     this.dispatchEvent(new CustomEvent('diff-updated', {
       bubbles: true,
       detail: { chunks, totalA: a.length, totalB: b.length },
