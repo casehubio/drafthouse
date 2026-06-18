@@ -6,7 +6,41 @@
 
 **Type:** CaseHub application (Quarkus)
 
-**Blog directory:** `wksp/blog/` (workspace blog — do not commit diary entries to the project repo; they are routed via blog-routing.yaml)
+## Artifact Locations
+
+| Skill | Writes to |
+|-------|-----------|
+| brainstorming (specs) | `specs/` (workspace staging) |
+| writing-plans (plans) | `plans/` |
+| handover | `HANDOFF.md` |
+| idea-log | `IDEAS.md` |
+| design-snapshot | `snapshots/` |
+| java-update-design / update-primary-doc | `design/JOURNAL.md` (created by `epic`) |
+| adr | `adr/` (workspace staging) |
+| write-blog | `blog/` |
+
+## Structure
+
+- `HANDOFF.md` — session handover (single file, overwritten each session)
+- `IDEAS.md` — idea log (single file)
+- `specs/` — brainstorming / design specs (staging; promoted to project `docs/specs/` at epic close)
+- `plans/` — implementation plans (ephemeral; stay in workspace only)
+- `snapshots/` — design snapshots with INDEX.md (auto-pruned, max 10)
+- `adr/` — architecture decision records (staging; promoted to project `docs/adr/` at epic close)
+- `blog/` — project diary entries with INDEX.md
+- `design/` — epic journal (created by `epic` at branch start)
+
+## Routing
+
+| Artifact   | Destination | Notes |
+|------------|-------------|-------|
+| adr        | project     | lands in `docs/adr/` — promoted at epic close |
+| specs      | project     | lands in `docs/specs/` — promoted at epic close |
+| blog       | workspace   | staged here; published to mdproctor.github.io via publish-blog |
+| plans      | workspace   | stay in workspace permanently |
+| design     | workspace   | epic journal stays in workspace |
+| snapshots  | workspace   | stay in workspace permanently |
+| handover   | workspace   | |
 
 ## Overview
 
@@ -96,9 +130,9 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 | `panels/drafthouse-review-tracker.js` | `<drafthouse-review-tracker>` — review point status checklist |
 | `panels/drafthouse-context-gauge.js` | `<drafthouse-context-gauge>` — topbar context usage gauge (SSE-driven, onMeta subscriber) |
 | `server/` | Multi-module Maven parent (api/ + runtime/ + claude-agent/) |
-| `server/api/` | Pure Java domain model — no Quarkus, no Qhorus; includes `debate/` package, `DocumentSet`, `DebateSession` |
+| `server/api/` | Pure Java domain model — no Quarkus, no Qhorus; includes `debate/` package, `DebateSession`, `DebateSessionSnapshot`, `DebateSessionStore` SPI, `DocumentEntry`, `ComparisonPair` |
 | `server/runtime/` | Quarkus 3.34.3 app — all resources, Qhorus, LangChain4j |
-| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Watch, Ui, DraftHouseMcpTools, DebateMcpTools, DraftHouseInstances, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, debate/ |
+| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Watch, Ui, DraftHouseMcpTools, DebateMcpTools, DraftHouseInstances, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, NoOpDebateSessionStore, JpaDebateSessionStore, DebateSessionEntity, debate/ |
 | `server/claude-agent/` | Optional module — ClaudeAgentSdkDebateAgentProvider (stub, pending platform#55) |
 | `server/runtime/src/main/resources/application.properties` | Quarkus config |
 | `server/runtime/target/drafthouse-server-runner.jar` | Built uber-jar (not committed) |
