@@ -41,19 +41,24 @@ jobs:
           key: playwright-${{ hashFiles('server/pom.xml') }}
           restore-keys: playwright-
 
+      - name: Build
+        run: cd server && mvn --batch-mode install -DskipTests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install Playwright browsers
         if: github.event_name == 'pull_request'
         run: cd server && mvn --batch-mode -pl runtime exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install chromium" -Dexec.classpathScope=test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build
+      - name: Test
         if: github.event_name == 'pull_request'
-        run: cd server && mvn --batch-mode install
+        run: cd server && mvn --batch-mode test -pl runtime
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and publish
+      - name: Publish
         if: github.event_name != 'pull_request'
         run: cd server && mvn --batch-mode deploy -DskipTests
         env:
