@@ -504,8 +504,6 @@ class DraftHouseReviewTracker extends HTMLElement {
       if (!wasSelected) el.classList.add('selected');
 
       const eventName = wasSelected ? 'point-deselected' : 'point-selected';
-      console.log(`[review-tracker] ${eventName} pointId=${point.pointId?.substring(0,8)} location=${JSON.stringify(point.location)} wasSelected=${wasSelected}`);
-
       this.dispatchEvent(new CustomEvent(eventName, {
         bubbles: true,
         detail: {

@@ -120,6 +120,22 @@ class SectionHighlightE2ETest {
             "§3 Why Use One?,        true",  // mixed numeric + text
             "§2.1 Rules,             true",  // mixed numeric + text for sub-section
             "Limitations / When It's Not Worth It, true", // slash-separated A/B heading names
+            // ── LLM compound/descriptive location formats ──────────────
+            "'Core Concepts',            true",  // single-quoted
+            "\"Core Concepts\",          true",  // double-quoted
+            "“Core Concepts”,          true",  // smart-quoted
+            "Section: Core Concepts,     true",  // prefix: Section:
+            "Heading: Working Memory,    true",  // prefix: Heading:
+            "Under Core Concepts,        true",  // prefix: Under
+            "In the Core Concepts,       true",  // prefix: In the
+            "The Core Concepts section,  true",  // prefix: The + suffix: section
+            "Further Reading section,    true",  // suffix: section
+            "Core Concepts heading,      true",  // suffix: heading
+            "Limitations - When It's Not Worth It, true", // dash-separated
+            "Limitations — When It's Not Worth It, true", // em-dash-separated
+            "Limitations and When It's Not Worth It, true", // and-separated
+            "Core Concepts or Why Use One?, true", // or-separated (matches first)
+            "Concepts and Memory,        true",  // word-overlap: 'concepts' matches Core Concepts
     })
     void sampleDocs_locationFormats(String location, boolean expectBar) {
         sessionId = startDebateSession(tools);

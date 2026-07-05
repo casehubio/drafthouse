@@ -539,18 +539,44 @@ class DraftHouseDiff extends HTMLElement {
         }
       }
     }
-    // Text substring match (also serves as fallback when numeric prefix didn't resolve)
     const lower = ref.toLowerCase();
     const found = headings.find(h => h.textContent.toLowerCase().includes(lower));
     if (found) return found;
-    // Slash-separated alternatives (e.g. "Limitations / When It's Not Worth It" from A/B diff)
-    if (ref.includes(' / ')) {
-      for (const part of ref.split(' / ')) {
-        const match = headings.find(h => h.textContent.toLowerCase().includes(part.trim().toLowerCase()));
+    // Normalize: strip quotes, LLM prefixes/suffixes, then retry
+    const normalized = this._normalizeLocation(lower);
+    if (normalized !== lower) {
+      const norm = headings.find(h => h.textContent.toLowerCase().includes(normalized));
+      if (norm) return norm;
+    }
+    // Separator-split alternatives: / - — and or
+    const sepMatch = ref.match(/\s+(?:\/|-|—|and|or)\s+/i);
+    if (sepMatch) {
+      for (const part of ref.split(/\s+(?:\/|-|—|and|or)\s+/i)) {
+        const cleaned = part.trim().toLowerCase();
+        if (!cleaned) continue;
+        const match = headings.find(h => h.textContent.toLowerCase().includes(cleaned));
         if (match) return match;
       }
     }
+    // Word-overlap fallback: score headings by how many location words they contain
+    const words = normalized.split(/\s+/).filter(w => w.length > 2);
+    if (words.length >= 2) {
+      let best = null, bestScore = 0;
+      for (const h of headings) {
+        const ht = h.textContent.toLowerCase();
+        const score = words.filter(w => ht.includes(w)).length;
+        if (score > bestScore) { bestScore = score; best = h; }
+      }
+      if (best && bestScore >= Math.ceil(words.length / 2)) return best;
+    }
     return null;
+  }
+
+  _normalizeLocation(text) {
+    let s = text.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '');
+    s = s.replace(/^(?:section|heading|under|in the|in|the)\s*[:.]?\s*/i, '');
+    s = s.replace(/\s+(?:section|heading|area|part)$/i, '');
+    return s.trim();
   }
 
   scrollToLocation(location) {
