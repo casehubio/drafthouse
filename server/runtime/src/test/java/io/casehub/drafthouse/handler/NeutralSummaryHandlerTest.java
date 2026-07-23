@@ -1,14 +1,15 @@
 package io.casehub.drafthouse.handler;
 
-import io.casehub.blocks.channel.ChannelAgentRequest;
 import io.casehub.blocks.channel.AgentTask;
-import io.casehub.blocks.conversation.ConversationState;
+import io.casehub.blocks.channel.ChannelAgentRequest;
 import io.casehub.blocks.conversation.ConversationPoint;
-import io.casehub.blocks.conversation.ThreadEntry;
+import io.casehub.blocks.conversation.ConversationState;
 import io.casehub.blocks.conversation.PointClassification;
 import io.casehub.blocks.conversation.Priority;
-import io.casehub.drafthouse.*;
-import io.casehub.drafthouse.debate.*;
+import io.casehub.blocks.conversation.ThreadEntry;
+import io.casehub.drafthouse.DebateSessionRegistry;
+import io.casehub.drafthouse.debate.DebateChannelProjection;
+import io.casehub.drafthouse.debate.DebateProtocol;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.message.ProjectionService;
@@ -18,11 +19,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class NeutralSummaryHandlerTest {
@@ -65,10 +69,10 @@ class NeutralSummaryHandlerTest {
     @Test
     void points_appear_in_assembled_input() {
         var thread = List.of(
-                new ThreadEntry("pt-1", null, null, "REV", 1, "RAISE", "The raise content.")
-        );
+                new ThreadEntry("pt-1", null, null, null, null, "REV", 1, "RAISE", "The raise content.")
+                            );
         var point = new ConversationPoint("pt-1", null,
-                new PointClassification(Priority.HIGH, "ISOLATED", null), thread, "OPEN");
+                                          new PointClassification(Priority.HIGH, "ISOLATED", null), thread, "OPEN");
         var state = new ConversationState(Map.of("pt-1", point), List.of(), List.of(), Map.of());
         when(projectionService.project(any(), any())).thenReturn(new ProjectionResult<>(state, null));
         AgentTask task = handler.prepareTask(new ChannelAgentRequest(channelId, "sub-1", outboundMessage, null));
@@ -79,11 +83,11 @@ class NeutralSummaryHandlerTest {
     @Test
     void multi_entry_thread_all_entries_appear_in_assembled_input() {
         var thread = List.of(
-                new ThreadEntry("pt-1", null, null, "REV", 1, "RAISE", "The concern."),
-                new ThreadEntry(null, null, null, "IMP", 2, "DISPUTE", "I disagree because...")
-        );
+                new ThreadEntry("pt-1", null, null, null, null, "REV", 1, "RAISE", "The concern."),
+                new ThreadEntry(null, null, null, null, null, "IMP", 2, "DISPUTE", "I disagree because...")
+                            );
         var point = new ConversationPoint("pt-1", null,
-                new PointClassification(Priority.MEDIUM, "SYSTEMIC", null), thread, "DISPUTED");
+                                          new PointClassification(Priority.MEDIUM, "SYSTEMIC", null), thread, "DISPUTED");
         var state = new ConversationState(Map.of("pt-1", point), List.of(), List.of(), Map.of());
         when(projectionService.project(any(), any())).thenReturn(new ProjectionResult<>(state, null));
         AgentTask task = handler.prepareTask(new ChannelAgentRequest(channelId, "sub-1", outboundMessage, null));

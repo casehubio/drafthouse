@@ -1,36 +1,39 @@
 package io.casehub.drafthouse;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import io.casehub.blocks.conversation.ConversationPoint;
+import io.casehub.blocks.conversation.ConversationState;
+import io.casehub.blocks.conversation.PointClassification;
+import io.casehub.blocks.conversation.Priority;
+import io.casehub.blocks.conversation.ThreadEntry;
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.gateway.ChannelRef;
+import io.casehub.qhorus.api.gateway.OutboundMessage;
+import io.casehub.qhorus.api.message.Message;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.qhorus.api.spi.ChannelProjection;
+import io.casehub.qhorus.api.spi.ProjectionResult;
+import io.casehub.qhorus.runtime.message.MessageService;
+import io.casehub.qhorus.runtime.message.ProjectionService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
-
-import io.casehub.blocks.conversation.ConversationPoint;
-import io.casehub.blocks.conversation.ConversationState;
-import io.casehub.blocks.conversation.PointClassification;
-import io.casehub.blocks.conversation.Priority;
-import io.casehub.blocks.conversation.ThreadEntry;
-import io.casehub.drafthouse.debate.AgentType;
-import io.casehub.platform.api.identity.ActorType;
-import io.casehub.qhorus.api.gateway.ChannelRef;
-import io.casehub.qhorus.api.gateway.OutboundMessage;
-import io.casehub.qhorus.api.message.MessageDispatch;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.api.spi.ChannelProjection;
-import io.casehub.qhorus.api.spi.ProjectionResult;
-import io.casehub.qhorus.api.message.Message;
-import io.casehub.qhorus.runtime.message.MessageService;
-import io.casehub.qhorus.runtime.message.ProjectionService;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class ReviewerChannelBackendTest {
 
@@ -248,15 +251,19 @@ class ReviewerChannelBackendTest {
 
     private static ConversationState buildAgreedState() {
         var thread = new java.util.ArrayList<ThreadEntry>();
-        thread.add(new ThreadEntry("P1", null, null, "REV", 0, "RAISE", "Prior question?"));
-        thread.add(new ThreadEntry(null, null, null, "IMP", 0, "AGREE", "Prior answer."));
+        thread.add(new ThreadEntry("P1", null, null, null, null, "REV", 0, "RAISE", "Prior question?"));
+        thread.add(new ThreadEntry(null, null, null, null, null, "IMP", 0, "AGREE", "Prior answer."));
         var point = new ConversationPoint(
                 "P1",
                 null,
                 new PointClassification(Priority.LOW, "ISOLATED", null),
                 thread,
                 "AGREED");
-        return new ConversationState(Map.of("P1", point), List.of(), List.of(), Map.of());
+        return new ConversationState(
+                java.util.Map.of("P1", point),
+                java.util.List.of(),
+                java.util.List.of(),
+                java.util.Map.of());
     }
 
     @Test

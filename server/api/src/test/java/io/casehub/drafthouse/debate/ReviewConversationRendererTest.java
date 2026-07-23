@@ -1,9 +1,18 @@
 package io.casehub.drafthouse.debate;
 
-import io.casehub.blocks.conversation.*;
+import io.casehub.blocks.conversation.ConversationPoint;
+import io.casehub.blocks.conversation.ConversationState;
+import io.casehub.blocks.conversation.PointClassification;
+import io.casehub.blocks.conversation.Priority;
+import io.casehub.blocks.conversation.ThreadEntry;
 import org.junit.jupiter.api.Test;
-import java.util.*;
-import static org.assertj.core.api.Assertions.*;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ReviewConversationRendererTest {
 
@@ -15,13 +24,12 @@ class ReviewConversationRendererTest {
         return new ConversationState(Map.of(), List.of(), List.of(), Map.of());
     }
 
-    /** Builds a ConversationPoint with one RAISE thread entry and optionally one response entry. */
     private static ConversationPoint point(String id, String status, String question, String answer) {
         var thread = new ArrayList<ThreadEntry>();
-        thread.add(new ThreadEntry(id, null, null, "REV", 0, "RAISE", question));
+        thread.add(new ThreadEntry(id, null, null, null, null, "REV", 0, "RAISE", question));
         if (answer != null) {
             String respType = "DECLINED".equals(status) ? "DECLINED" : "AGREE";
-            thread.add(new ThreadEntry(null, null, null, "IMP", 0, respType, answer));
+            thread.add(new ThreadEntry(null, null, null, null, null, "IMP", 0, respType, answer));
         }
         return new ConversationPoint(id, null, new PointClassification(Priority.LOW, "ISOLATED", null), thread, status);
     }
@@ -89,19 +97,18 @@ class ReviewConversationRendererTest {
 
     @Test
     void agreedPoint_withMultipleThreadEntries_returnsLastResponseContent() {
-        // Build a point that has RAISE → QUALIFY → AGREE thread (3 entries)
         var thread = new ArrayList<ThreadEntry>();
-        thread.add(new ThreadEntry("R1", null, null, "REV", 0, "RAISE", "What changed?"));
-        thread.add(new ThreadEntry(null, null, null, "IMP", 0, "QUALIFY", "Partly addressed."));
-        thread.add(new ThreadEntry(null, null, null, "REV", 0, "AGREE", "Agreed after clarification."));
+        thread.add(new ThreadEntry("R1", null, null, null, null, "REV", 0, "RAISE", "What changed?"));
+        thread.add(new ThreadEntry(null, null, null, null, null, "IMP", 0, "QUALIFY", "Partly addressed."));
+        thread.add(new ThreadEntry(null, null, null, null, null, "REV", 0, "AGREE", "Agreed after clarification."));
         var point = new ConversationPoint("R1", null,
-                new PointClassification(Priority.LOW, "ISOLATED", null),
-                thread, "AGREED");
+                                          new PointClassification(Priority.LOW, "ISOLATED", null),
+                                          thread, "AGREED");
         ConversationState s = new ConversationState(Map.of("R1", point), List.of(), List.of(), Map.of());
 
         String output = renderer.render(s);
-        assertThat(output).contains("A: Agreed after clarification."); // last entry wins
-        assertThat(output).doesNotContain("Partly addressed.");         // intermediate entry excluded
+        assertThat(output).contains("A: Agreed after clarification.");
+        assertThat(output).doesNotContain("Partly addressed.");
     }
 
     @Test

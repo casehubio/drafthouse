@@ -1,6 +1,18 @@
 package io.casehub.drafthouse;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.test.common.http.TestHTTPResource;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import jakarta.websocket.ClientEndpoint;
+import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.OnMessage;
+import jakarta.websocket.Session;
+import jakarta.websocket.WebSocketContainer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.List;
@@ -14,18 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import jakarta.inject.Inject;
-import jakarta.websocket.*;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.quarkus.test.common.http.TestHTTPResource;
-import io.quarkus.test.junit.QuarkusTest;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
 class DebateWebSocketTest {
@@ -62,13 +63,14 @@ class DebateWebSocketTest {
 
     @Test
     void connect_receives_reconnected_and_sessions() throws Exception {
-        TestClient client = new TestClient(2);
+        TestClient client = new TestClient(3);
         wsSession = connectWebSocket(client);
 
         assertThat(client.awaitMessages(5)).isTrue();
         List<JsonNode> messages = client.parsedMessages(mapper);
         assertThat(messages).anyMatch(m -> "reconnected".equals(topicOf(m)));
         assertThat(messages).anyMatch(m -> "sessions".equals(topicOf(m)));
+        assertThat(messages).anyMatch(m -> "brainstorm-sessions".equals(topicOf(m)));
     }
 
     @Test
@@ -76,12 +78,12 @@ class DebateWebSocketTest {
         String startResult = tools.startDebate("test-spec.md", null);
         activeDebateSessionId = extractDebateId(startResult);
         tools.raisePoint(activeDebateSessionId, "REV", 1,
-                "Test point", "HIGH", null, null);
+                         "Test point", "HIGH", null, null);
 
-        TestClient client = new TestClient(5);
+        TestClient client = new TestClient(6);
         wsSession = connectWebSocket(client);
         client.awaitMessages(5);
-        client.resetLatch(4);  // ack + debate-entries + context-usage + documents-changed
+        client.resetLatch(4);
 
         sendSubscribe(wsSession, "debate:" + activeDebateSessionId);
 
@@ -94,10 +96,10 @@ class DebateWebSocketTest {
 
     @Test
     void subscribe_to_nonexistent_session_returns_error() throws Exception {
-        TestClient client = new TestClient(2);
+        TestClient client = new TestClient(3);
         wsSession = connectWebSocket(client);
         client.awaitMessages(5);
-        client.resetLatch(1);  // error response
+        client.resetLatch(1);
 
         sendSubscribe(wsSession, "debate:00000000-0000-0000-0000-000000000000");
 
@@ -108,10 +110,10 @@ class DebateWebSocketTest {
 
     @Test
     void unrecognized_dataset_receives_ack() throws Exception {
-        TestClient client = new TestClient(2);
+        TestClient client = new TestClient(3);
         wsSession = connectWebSocket(client);
         client.awaitMessages(5);
-        client.resetLatch(1);  // ack response
+        client.resetLatch(1);
 
         sendSubscribe(wsSession, "_events");
 
@@ -122,7 +124,7 @@ class DebateWebSocketTest {
 
     @Test
     void malformed_json_does_not_crash() throws Exception {
-        TestClient client = new TestClient(2);
+        TestClient client = new TestClient(3);
         wsSession = connectWebSocket(client);
         client.awaitMessages(5);
 
@@ -139,7 +141,7 @@ class DebateWebSocketTest {
         tools.raisePoint(activeDebateSessionId, "REV", 1,
                 "First point", "HIGH", null, null);
 
-        TestClient client1 = new TestClient(5);
+        TestClient client1 = new TestClient(6);
         Session session1 = connectWebSocket(client1);
         client1.awaitMessages(5);
         client1.resetLatch(4);  // ack + debate-entries + context-usage + documents-changed
@@ -153,7 +155,7 @@ class DebateWebSocketTest {
 
         session1.close();
 
-        TestClient client2 = new TestClient(2);
+        TestClient client2 = new TestClient(3);
         wsSession = connectWebSocket(client2);
         assertThat(client2.awaitMessages(5)).isTrue();
 
@@ -176,7 +178,7 @@ class DebateWebSocketTest {
         String startResult = tools.startDebate("test-spec.md", null);
         activeDebateSessionId = extractDebateId(startResult);
 
-        TestClient client1 = new TestClient(5);
+        TestClient client1 = new TestClient(6);
         Session session1 = connectWebSocket(client1);
         client1.awaitMessages(5);
         client1.resetLatch(3);  // ack + context-usage + documents-changed (no entries yet)
@@ -186,7 +188,7 @@ class DebateWebSocketTest {
         tools.endDebate(activeDebateSessionId, false);
         session1.close();
 
-        TestClient client2 = new TestClient(2);
+        TestClient client2 = new TestClient(3);
         wsSession = connectWebSocket(client2);
         assertThat(client2.awaitMessages(5)).isTrue();
 
@@ -206,7 +208,7 @@ class DebateWebSocketTest {
         String startResult = tools.startDebate("test-spec.md", null);
         activeDebateSessionId = extractDebateId(startResult);
 
-        TestClient client = new TestClient(5);
+        TestClient client = new TestClient(6);
         wsSession = connectWebSocket(client);
         client.awaitMessages(5);
         client.resetLatch(3);  // ack + context-usage + documents-changed (no entries yet)

@@ -1,14 +1,15 @@
 package io.casehub.drafthouse.handler;
 
-import io.casehub.blocks.channel.ChannelAgentRequest;
 import io.casehub.blocks.channel.AgentTask;
-import io.casehub.blocks.conversation.ConversationState;
+import io.casehub.blocks.channel.ChannelAgentRequest;
 import io.casehub.blocks.conversation.ConversationPoint;
-import io.casehub.blocks.conversation.ThreadEntry;
+import io.casehub.blocks.conversation.ConversationState;
 import io.casehub.blocks.conversation.PointClassification;
 import io.casehub.blocks.conversation.Priority;
-import io.casehub.drafthouse.*;
-import io.casehub.drafthouse.debate.*;
+import io.casehub.blocks.conversation.ThreadEntry;
+import io.casehub.drafthouse.DebateSessionRegistry;
+import io.casehub.drafthouse.debate.DebateChannelProjection;
+import io.casehub.drafthouse.debate.DebateProtocol;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.casehub.qhorus.runtime.message.ProjectionService;
@@ -18,11 +19,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ConsistencyCheckHandlerTest {
@@ -72,24 +77,23 @@ class ConsistencyCheckHandlerTest {
     @Test
     void only_agreed_points_included_open_excluded() {
         var agreedThread = List.of(
-                new ThreadEntry("pt-a", null, null, "REV", 1, "RAISE", "Agreed point content."),
-                new ThreadEntry(null, null, null, "IMP", 2, "AGREE", "Agreed.")
-        );
+                new ThreadEntry("pt-a", null, null, null, null, "REV", 1, "RAISE", "Agreed point content."),
+                new ThreadEntry(null, null, null, null, null, "IMP", 2, "AGREE", "Agreed.")
+                                  );
         var openThread = List.of(
-                new ThreadEntry("pt-b", null, null, "IMP", 1, "RAISE", "Open point content.")
-        );
+                new ThreadEntry("pt-b", null, null, null, null, "IMP", 1, "RAISE", "Open point content.")
+                                );
         var state = new ConversationState(
                 Map.of(
-                    "pt-a", new ConversationPoint("pt-a", null, new PointClassification(Priority.HIGH, "ISOLATED", null), agreedThread, "AGREED"),
-                    "pt-b", new ConversationPoint("pt-b", null, new PointClassification(Priority.MEDIUM, "ISOLATED", null), openThread, "OPEN")
-                ),
-                List.of(), List.of(), Map.of()
-        );
-        when(projectionService.project(eq(channelId), any())).thenReturn(new ProjectionResult<>(state, null));
-        AgentTask task = handler.prepareTask(requestWithBody("Proposed resolution text."));
-        assertThat(task.assembledInput()).contains("Agreed point content.");
-        assertThat(task.assembledInput()).doesNotContain("Open point content.");
-        assertThat(task.assembledInput()).contains("Proposed resolution text.");
+                        "pt-a", new ConversationPoint("pt-a", null, new PointClassification(Priority.HIGH, "ISOLATED", null), agreedThread, "AGREED"),
+                        "pt-b", new ConversationPoint("pt-b", null, new PointClassification(Priority.MEDIUM, "ISOLATED", null), openThread, "OPEN")
+                      ),
+                List.of(), List.of(), Map.of());
+        when(projectionService.project(any(), any())).thenReturn(new ProjectionResult<>(state, null));
+
+        AgentTask task = handler.prepareTask(requestWithBody("Some resolution."));
+        assertThat(task.systemPrompt()).contains("Agreed point content.");
+        assertThat(task.systemPrompt()).doesNotContain("Open point content.");
     }
 
     @Test

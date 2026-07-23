@@ -1,9 +1,9 @@
 package io.casehub.drafthouse;
 
+import org.junit.jupiter.api.Test;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import org.junit.jupiter.api.Test;
 
 class BrainstormSessionTest {
 
@@ -145,13 +145,13 @@ class BrainstormSessionTest {
         var option = new BrainstormOption("A", "Option A", "Desc A", "Trade A");
         assertThat(option.status()).isEqualTo(BrainstormOption.Status.LIVE);
 
-        option.setStatus(BrainstormOption.Status.RECOMMENDED);
+        option.transitionTo(BrainstormOption.Status.RECOMMENDED);
         assertThat(option.status()).isEqualTo(BrainstormOption.Status.RECOMMENDED);
 
-        option.setStatus(BrainstormOption.Status.EXPLORED);
+        option.transitionTo(BrainstormOption.Status.EXPLORED);
         assertThat(option.status()).isEqualTo(BrainstormOption.Status.EXPLORED);
 
-        option.setStatus(BrainstormOption.Status.ELIMINATED);
+        option.transitionTo(BrainstormOption.Status.ELIMINATED);
         assertThat(option.status()).isEqualTo(BrainstormOption.Status.ELIMINATED);
     }
 
@@ -165,5 +165,82 @@ class BrainstormSessionTest {
         assertThat(option.title()).isEqualTo("Updated");
         assertThat(option.description()).isEqualTo("New desc");
         assertThat(option.tradeoffs()).isEqualTo("New tradeoffs");
+    }
+
+    @Test
+    void transitionTo_liveToRecommended_succeeds() {
+        var option = new BrainstormOption("A", "A", "A", "A");
+        option.transitionTo(BrainstormOption.Status.RECOMMENDED);
+        assertThat(option.status()).isEqualTo(BrainstormOption.Status.RECOMMENDED);
+    }
+
+    @Test
+    void transitionTo_liveToExplored_succeeds() {
+        var option = new BrainstormOption("A", "A", "A", "A");
+        option.transitionTo(BrainstormOption.Status.EXPLORED);
+        assertThat(option.status()).isEqualTo(BrainstormOption.Status.EXPLORED);
+    }
+
+    @Test
+    void transitionTo_liveToEliminated_succeeds() {
+        var option = new BrainstormOption("A", "A", "A", "A");
+        option.transitionTo(BrainstormOption.Status.ELIMINATED);
+        assertThat(option.status()).isEqualTo(BrainstormOption.Status.ELIMINATED);
+    }
+
+    @Test
+    void transitionTo_liveToSelected_succeeds() {
+        var option = new BrainstormOption("A", "A", "A", "A");
+        option.transitionTo(BrainstormOption.Status.SELECTED);
+        assertThat(option.status()).isEqualTo(BrainstormOption.Status.SELECTED);
+    }
+
+    @Test
+    void transitionTo_eliminatedToAnything_throws() {
+        var option = new BrainstormOption("A", "A", "A", "A");
+        option.transitionTo(BrainstormOption.Status.ELIMINATED);
+        assertThatThrownBy(() -> option.transitionTo(BrainstormOption.Status.RECOMMENDED))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void transitionTo_selectedToAnything_throws() {
+        var option = new BrainstormOption("A", "A", "A", "A");
+        option.transitionTo(BrainstormOption.Status.SELECTED);
+        assertThatThrownBy(() -> option.transitionTo(BrainstormOption.Status.LIVE))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void transitionTo_exploredToExplored_isNoOp() {
+        var option = new BrainstormOption("A", "A", "A", "A");
+        option.transitionTo(BrainstormOption.Status.EXPLORED);
+        option.transitionTo(BrainstormOption.Status.EXPLORED);
+        assertThat(option.status()).isEqualTo(BrainstormOption.Status.EXPLORED);
+    }
+
+    @Test
+    void transitionTo_recommendedToExplored_succeeds() {
+        var option = new BrainstormOption("A", "A", "A", "A");
+        option.transitionTo(BrainstormOption.Status.RECOMMENDED);
+        option.transitionTo(BrainstormOption.Status.EXPLORED);
+        assertThat(option.status()).isEqualTo(BrainstormOption.Status.EXPLORED);
+    }
+
+    @Test
+    void setRecommendation_setsRecommended_clearsPrevious() {
+        var session = new BrainstormSession("bs-1");
+        session.addOption(new BrainstormOption("A", "A", "A", "A"));
+        session.addOption(new BrainstormOption("B", "B", "B", "B"));
+
+        session.setRecommendation("A");
+        assertThat(session.findOption("A").get().status())
+                .isEqualTo(BrainstormOption.Status.RECOMMENDED);
+
+        session.setRecommendation("B");
+        assertThat(session.findOption("B").get().status())
+                .isEqualTo(BrainstormOption.Status.RECOMMENDED);
+        assertThat(session.findOption("A").get().status())
+                .isEqualTo(BrainstormOption.Status.EXPLORED);
     }
 }

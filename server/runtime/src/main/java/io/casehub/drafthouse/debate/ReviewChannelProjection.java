@@ -58,13 +58,14 @@ public class ReviewChannelProjection implements ChannelProjection<ConversationSt
                                                      location != null && !location.isBlank() ? location : null);
 
         return ConversationFold.createPoint(state, entryId, topicMeta, message.id(), message.type(),
+                                            message.sender(), message.createdAt(),
                                             classification, role(message), 0, "RAISE", message.content());
     }
 
     private ConversationState handleResponse(ConversationState state, MessageView message,
-                                              String entryType, String newStatus) {
+                                             String entryType, String newStatus) {
         String targetId = message.correlationId();
-        if (targetId == null) return state;
+        if (targetId == null) {return state;}
         if (!state.points().containsKey(targetId)) {
             LOG.log(System.Logger.Level.WARNING,
                     "Response references unknown point ID: {0} — discarded", targetId);
@@ -73,13 +74,15 @@ public class ReviewChannelProjection implements ChannelProjection<ConversationSt
 
         String content = Objects.requireNonNullElse(message.content(), "");
         return ConversationFold.respondToPoint(state, targetId, message.id(), message.type(),
-                role(message), 0, entryType, content, newStatus);
+                                               message.sender(), message.createdAt(),
+                                               role(message), 0, entryType, content, newStatus);
     }
 
     private ConversationState handleFlagHuman(ConversationState state, MessageView message) {
         String content = Objects.requireNonNullElse(message.content(), "");
         return ConversationFold.flagHuman(state, message.correlationId(), message.id(),
-                role(message), 0, content);
+                                          message.sender(), message.createdAt(),
+                                          role(message), 0, content);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

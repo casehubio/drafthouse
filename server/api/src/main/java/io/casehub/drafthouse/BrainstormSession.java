@@ -42,13 +42,27 @@ public class BrainstormSession {
         return options.stream().filter(o -> o.id().equals(optionId)).findFirst();
     }
 
+
+    public void setRecommendation(String optionId) {
+        if (state != State.ACTIVE) {
+            throw new IllegalStateException("Cannot recommend in a " + state + " session");
+        }
+        BrainstormOption target = findOption(optionId)
+                                          .orElseThrow(() -> new IllegalArgumentException("Unknown option: " + optionId));
+        options.stream()
+               .filter(o -> o.status() == BrainstormOption.Status.RECOMMENDED)
+               .forEach(o -> o.transitionTo(BrainstormOption.Status.EXPLORED));
+        target.transitionTo(BrainstormOption.Status.RECOMMENDED);
+        touch();
+    }
+
     public void markSelected(String optionId) {
         if (state != State.ACTIVE) {
             throw new IllegalStateException("Cannot select in a " + state + " session");
         }
         BrainstormOption option = findOption(optionId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown option: " + optionId));
-        option.setStatus(BrainstormOption.Status.SELECTED);
+        option.transitionTo(BrainstormOption.Status.SELECTED);
         this.state = State.CONVERGED;
         touch();
     }

@@ -1,14 +1,16 @@
 package io.casehub.drafthouse.handler;
 
-import io.casehub.blocks.channel.ChannelAgentRequest;
 import io.casehub.blocks.channel.AgentTask;
-import io.casehub.blocks.conversation.ConversationState;
+import io.casehub.blocks.channel.ChannelAgentRequest;
 import io.casehub.blocks.conversation.ConversationPoint;
-import io.casehub.blocks.conversation.ThreadEntry;
+import io.casehub.blocks.conversation.ConversationState;
 import io.casehub.blocks.conversation.PointClassification;
 import io.casehub.blocks.conversation.Priority;
-import io.casehub.drafthouse.*;
-import io.casehub.drafthouse.debate.*;
+import io.casehub.blocks.conversation.ThreadEntry;
+import io.casehub.drafthouse.DebateSession;
+import io.casehub.drafthouse.DebateSessionRegistry;
+import io.casehub.drafthouse.debate.DebateChannelProjection;
+import io.casehub.drafthouse.debate.DebateProtocol;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.runtime.message.MessageService;
@@ -22,11 +24,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class VerifyHandlerTest {
@@ -72,13 +80,13 @@ class VerifyHandlerTest {
     }
 
     private void setupState(String pointId, String raiseContent) {
-        var thread = List.of(new ThreadEntry(pointId, null, null, "REV", 1, "RAISE", raiseContent));
+        var thread = List.of(new ThreadEntry(pointId, null, null, null, null, "REV", 1, "RAISE", raiseContent));
         var point = new ConversationPoint(pointId, null,
-                new PointClassification(Priority.HIGH, "ISOLATED", null),
-                thread, "OPEN");
+                                          new PointClassification(Priority.HIGH, "ISOLATED", null),
+                                          thread, "OPEN");
         var state = new ConversationState(Map.of(pointId, point), List.of(), List.of(), Map.of());
         lenient().when(projectionService.project(eq(channelId), any()))
-                .thenReturn(new ProjectionResult<>(state, null));
+                 .thenReturn(new ProjectionResult<>(state, null));
     }
 
     @Test
@@ -133,19 +141,21 @@ class VerifyHandlerTest {
 
     @Test
     void does_not_include_thread_history_beyond_raise(@TempDir Path dir) throws IOException {
-        // Invariant: VERIFY must include only the raise content, not any subsequent thread entries
         Path specFile = dir.resolve("spec.md");
         java.nio.file.Files.writeString(specFile, "# The Spec");
         when(registry.find(channelId)).thenReturn(Optional.of(sessionWithSpec(specFile.toString())));
         var thread = List.of(
-                new ThreadEntry("pt-1", null, null, "REV", 1, "RAISE", "The claim."),
-                new ThreadEntry(null, null, null, "IMP", 2, "DISPUTE", "Other agent content.")
-        );
+                new ThreadEntry("pt-1", null, null, null, null, "REV", 1, "RAISE", "The claim."),
+                new ThreadEntry(null, null, null, null, null, "IMP", 2, "DISPUTE", "Other agent content.")
+                            );
         var point = new ConversationPoint("pt-1", null,
-                new PointClassification(Priority.HIGH, "ISOLATED", null), thread, "DISPUTED");
+                                          new PointClassification(Priority.HIGH, "ISOLATED", null), thread, "DISPUTED");
         var state = new ConversationState(Map.of("pt-1", point), List.of(), List.of(), Map.of());
         when(projectionService.project(any(), any())).thenReturn(new ProjectionResult<>(state, null));
-        AgentTask task = handler.prepareTask(requestFor("pt-1"));
+
+        when(outboundMessage.correlationId()).thenReturn("pt-1");
+        var       request = new ChannelAgentRequest(channelId, "sub-1", outboundMessage, null);
+        AgentTask task    = handler.prepareTask(request);
         assertThat(task.assembledInput()).contains("The claim.");
         assertThat(task.assembledInput()).doesNotContain("Other agent content.");
     }

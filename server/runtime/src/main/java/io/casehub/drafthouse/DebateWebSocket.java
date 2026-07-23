@@ -64,6 +64,13 @@ public class DebateWebSocket {
                                                                                s.debateSessionId(), s.channelName(), s.primaryPath(), s.agentId()))
                                                                        .toList();
         sendEvent(connection, "sessions", sessions);
+        var brainstormSessions = brainstormRegistry.activeSessions().stream()
+                                                   .map(s -> Map.of(
+                                                           "sessionId", s.sessionId(),
+                                                           "state", s.state().name(),
+                                                           "optionCount", String.valueOf(s.options().size())))
+                                                   .toList();
+        sendEvent(connection, "brainstorm-sessions", brainstormSessions);
     }
 
     @OnTextMessage

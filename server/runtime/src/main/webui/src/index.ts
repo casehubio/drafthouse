@@ -11,6 +11,8 @@ import "./panels/context-gauge.js";
 import "./panels/doc-picker.js";
 import "./panels/document-timeline.js";
 import "./panels/workspace-status.js";
+import "./panels/brainstorm-options.js";
+import "./panels/brainstorm-picker.js";
 import "@casehubio/pages-component-terminal";
 
 // ── Electron IPC Bridge ──────────────────────────────────────────────────
@@ -45,6 +47,7 @@ registerPanel("review-tracker", "review-tracker");
 registerPanel("context-gauge", "context-gauge");
 registerPanel("document-timeline", "document-timeline");
 registerPanel("terminal", "pages-component-terminal");
+registerPanel("brainstorm-options", "brainstorm-options");
 
 // Parse URL params
 const params = new URLSearchParams(window.location.search);
@@ -102,23 +105,44 @@ function buildBrainstormLayout() {
     html(`<div id="topbar" style="display:flex; align-items:center; gap:8px; padding:4px 12px; background:var(--topbar-bg); color:var(--topbar-fg);">
       <strong>DraftHouse</strong>
       <span style="font-size:12px; color:var(--muted);">Brainstorm</span>
+      <brainstorm-picker></brainstorm-picker>
       <span style="flex:1"></span>
     </div>`),
     split("horizontal", [
       hostPanel("terminal", { wsUrl: terminalWsUrl }),
-    ], { ratio: [100] }),
+      hostPanel("brainstorm-options", {}),
+    ], { ratio: [50, 50] }),
   );
 }
 
 await loadSite(document.getElementById("app")!, workbench);
 
-// ── Terminal injection bridge ────────────────────────────────────────
-// Brainstorm panel (future Slice 4) dispatches terminal-inject events;
-// this bridge routes them to the terminal component's sendInput() method.
+// ── Brainstorm mode wiring ───────────────────────────────────────────
 if (mode === "brainstorm") {
   document.addEventListener("terminal-inject", ((e: CustomEvent) => {
     const terminal = document.querySelector("pages-component-terminal") as any;
     if (terminal) terminal.sendInput(e.detail.text);
+  }) as EventListener);
+
+  document.addEventListener("brainstorm-session-selected", ((e: CustomEvent) => {
+    if (e.detail?.sessionId) connectBrainstormSession(e.detail.sessionId);
+  }) as EventListener);
+
+  document.addEventListener("pages-event", ((e: CustomEvent) => {
+    const { topic, payload } = e.detail || {};
+    if (topic === "brainstorm-sessions" && Array.isArray(payload) && payload.length === 1) {
+      connectBrainstormSession(payload[0].sessionId);
+    }
+    if (topic === "brainstorm-session-created" && payload?.sessionId) {
+      connectBrainstormSession(payload.sessionId);
+    }
+    if (topic === "brainstorm-user-action" && payload) {
+      const terminal = document.querySelector("pages-component-terminal") as any;
+      if (terminal) {
+        terminal.sendInput(`[User ${payload.action.toLowerCase()} '${payload.optionTitle}' via browser]
+`);
+      }
+    }
   }) as EventListener);
 }
 
@@ -138,6 +162,7 @@ const noOpError = () => {};
 wsSource.subscribe("_events" as any, { uuid: "_events" as any } as any, noOpListener, noOpError);
 
 let currentSessionId: string | null = null;
+let currentBrainstormSessionId: string | null = null;
 let watchedFiles: string[] = [];
 
 function connectDebateSession(sessionId: string): void {
@@ -184,6 +209,18 @@ function watchFiles(...paths: (string | null)[]): void {
         { uuid: ("file:" + p) as any }, noOpListener, noOpError);
     }
   });
+}
+
+function connectBrainstormSession(sessionId: string): void {
+  if (currentBrainstormSessionId) {
+    wsSource.unsubscribe(("brainstorm:" + currentBrainstormSessionId) as any);
+  }
+  currentBrainstormSessionId = sessionId;
+  wsSource.subscribe(("brainstorm:" + sessionId) as any,
+    { uuid: ("brainstorm:" + sessionId) as any } as any, noOpListener, noOpError);
+
+  const optionsEl = document.querySelector("brainstorm-options") as any;
+  if (optionsEl) optionsEl.configure({ sessionId });
 }
 
 export function getSessionId(): string | null {
