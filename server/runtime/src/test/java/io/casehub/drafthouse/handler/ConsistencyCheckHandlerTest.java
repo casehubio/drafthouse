@@ -92,8 +92,8 @@ class ConsistencyCheckHandlerTest {
         when(projectionService.project(any(), any())).thenReturn(new ProjectionResult<>(state, null));
 
         AgentTask task = handler.prepareTask(requestWithBody("Some resolution."));
-        assertThat(task.systemPrompt()).contains("Agreed point content.");
-        assertThat(task.systemPrompt()).doesNotContain("Open point content.");
+        assertThat(task.assembledInput()).contains("Agreed point content.");
+        assertThat(task.assembledInput()).doesNotContain("Open point content.");
     }
 
     @Test

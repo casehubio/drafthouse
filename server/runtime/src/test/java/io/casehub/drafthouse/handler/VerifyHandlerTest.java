@@ -153,9 +153,7 @@ class VerifyHandlerTest {
         var state = new ConversationState(Map.of("pt-1", point), List.of(), List.of(), Map.of());
         when(projectionService.project(any(), any())).thenReturn(new ProjectionResult<>(state, null));
 
-        when(outboundMessage.correlationId()).thenReturn("pt-1");
-        var       request = new ChannelAgentRequest(channelId, "sub-1", outboundMessage, null);
-        AgentTask task    = handler.prepareTask(request);
+        AgentTask task = handler.prepareTask(requestFor("pt-1"));
         assertThat(task.assembledInput()).contains("The claim.");
         assertThat(task.assembledInput()).doesNotContain("Other agent content.");
     }

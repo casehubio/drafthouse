@@ -106,7 +106,7 @@ class DeepAnalysisHandlerTest {
 
         AgentTask task = handler.prepareTask(requestFor("pt-1"));
 
-        assertThat(task.systemPrompt()).contains("§3.2 Authentication");
+        assertThat(task.assembledInput()).contains("§3.2 Authentication");
     }
 
     @Test
