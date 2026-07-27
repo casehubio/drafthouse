@@ -33,7 +33,7 @@ jobs:
       - name: Build pages packages
         run: |
           mv .pages-checkout "$GITHUB_WORKSPACE/../pages"
-          cd "$GITHUB_WORKSPACE/../pages" && corepack enable && yarn install --immutable && yarn build
+          cd "$GITHUB_WORKSPACE/../pages" && corepack enable && yarn install && yarn build
         env:
           GH_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
