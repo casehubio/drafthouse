@@ -33,7 +33,11 @@ jobs:
       - name: Build pages packages
         run: |
           mv .pages-checkout "$GITHUB_WORKSPACE/../pages"
-          cd "$GITHUB_WORKSPACE/../pages" && corepack enable && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install && yarn build
+          cd "$GITHUB_WORKSPACE/../pages"
+          corepack enable
+          find packages -name package.json -maxdepth 2 -exec sed -i 's/"file:\.\.\/[^"]*"/"workspace:*"/g' {} +
+          YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+          yarn build
         env:
           GH_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
