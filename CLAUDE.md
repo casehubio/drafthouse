@@ -228,6 +228,19 @@ DraftHouse uses **casehub-pages workbench** with **Lit** (LitElement) panels. Th
 - **Research spec:** `docs/superpowers/specs/2026-05-26-document-review-tool-research.md`
 - **Feature backlog:** `docs/FEATURES.md`
 
+## Frontend Dependencies
+
+This project consumes frontend packages from casehub-pages via **Maven SNAPSHOT** artifacts (WebJar pattern).
+See [casehub-pages ADR-0001](https://github.com/casehubio/casehub-pages/blob/main/docs/adr/0001-cross-repo-frontend-dependency-management.md).
+
+| Source | Mechanism |
+|--------|-----------|
+| casehub-pages | Maven SNAPSHOT (`META-INF/resources/`) |
+
+**Local development:** after changing pages, run `yarn build && mvn install` in the source repo to publish the SNAPSHOT to `~/.m2`.
+
+**Do not use npm `file:` references for cross-repo dependencies** — they break in CI. See ADR-0001.
+
 ## Work Tracking
 
 **Issue tracking: enabled**
