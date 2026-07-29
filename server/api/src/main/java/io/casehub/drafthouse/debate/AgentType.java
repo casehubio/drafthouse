@@ -1,5 +1,5 @@
 package io.casehub.drafthouse.debate;
 
 public enum AgentType {
-    REV, IMP, SUPERVISOR, MODERATOR, SELECTOR
+    REV, IMP, SUPERVISOR, MODERATOR, SELECTOR, HUMAN
 }

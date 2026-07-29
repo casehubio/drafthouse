@@ -33,6 +33,8 @@ public class DebateSession {
     private volatile SelectionScope currentSelection;
     private volatile Map<Integer, String> snapshotContent = Map.of();
     private volatile DocumentTimeline timeline;
+    private volatile String           workspacePath;
+
 
     public DebateSession(final UUID channelId, final String debateSessionId,
                          final String channelName, final String agentId) {
@@ -89,8 +91,8 @@ public class DebateSession {
         for (var entry : snapshot.participants().entrySet()) {
             session.registerIfAbsent(entry.getKey(), entry::getValue);
         }
-        return session;
-    }
+        session.setWorkspacePath(snapshot.workspacePath());
+        return session;}
 
     /**
      * Atomically registers a role's instance on first use.
@@ -146,6 +148,15 @@ public class DebateSession {
     public DocumentTimeline timeline() {
         return timeline;
     }
+
+    public String workspacePath() {
+        return workspacePath;
+    }
+
+    public void setWorkspacePath(String workspacePath) {
+        this.workspacePath = workspacePath;
+    }
+
 
     // ── Document operations ───────────────────────────────────────────────
 
@@ -241,13 +252,12 @@ public class DebateSession {
      */
     public DebateSessionSnapshot snapshot() {
         List<DocumentEntry> docs;
-        ComparisonPair comp;
+        ComparisonPair      comp;
         synchronized (documentSet) {
             docs = documentSet.documents();
             comp = documentSet.currentComparison();
         }
         return new DebateSessionSnapshot(
                 channelId, debateSessionId, channelName,
-                docs, comp, Map.copyOf(participants), agentId);
-    }
+                docs, comp, Map.copyOf(participants), agentId, workspacePath);}
 }

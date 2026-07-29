@@ -106,7 +106,7 @@ class DebateSessionRegistryTest {
         var snap = new DebateSessionSnapshot(
                 channelId, channelId.toString(), "ch-name",
                 List.of(new DocumentEntry("/a.md", "spec")),
-                null, Map.of(), null);
+                null, Map.of(), null, null);
         when(store.loadAll()).thenReturn(List.of(snap));
 
         var freshRegistry = new DebateSessionRegistryImpl();

@@ -8,7 +8,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DebateSessionTest {
 
@@ -324,7 +325,7 @@ class DebateSessionTest {
                 List.of(new DocumentEntry("/a.md", "spec"), new DocumentEntry("/b.md", "impl")),
                 new ComparisonPair("/a.md", "/b.md"),
                 Map.of(AgentType.REV, "rev-id", AgentType.IMP, "imp-id"),
-                null);
+                null, null);
 
         DebateSession session = DebateSession.fromSnapshot(snap);
         assertThat(session.channelId()).isEqualTo(CHANNEL_ID);
@@ -344,5 +345,28 @@ class DebateSessionTest {
 
         session.addDocument("/b.md", "impl");
         assertThat(snap.documents()).hasSize(1);
+    }
+
+    @Test
+    void snapshot_preservesWorkspacePath() {
+        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, (String) null);
+        session.setWorkspacePath("/tmp/workspace");
+
+        DebateSessionSnapshot snapshot = session.snapshot();
+        assertThat(snapshot.workspacePath()).isEqualTo("/tmp/workspace");
+
+        DebateSession restored = DebateSession.fromSnapshot(snapshot);
+        assertThat(restored.workspacePath()).isEqualTo("/tmp/workspace");
+    }
+
+    @Test
+    void snapshot_nullWorkspacePath_roundTrips() {
+        DebateSession session = new DebateSession(CHANNEL_ID, SESSION_ID, NAME, (String) null);
+
+        DebateSessionSnapshot snapshot = session.snapshot();
+        assertThat(snapshot.workspacePath()).isNull();
+
+        DebateSession restored = DebateSession.fromSnapshot(snapshot);
+        assertThat(restored.workspacePath()).isNull();
     }
 }

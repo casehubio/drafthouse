@@ -12,4 +12,5 @@ public record DebateSessionSnapshot(
         List<DocumentEntry> documents,
         ComparisonPair comparison,
         Map<AgentType, String> participants,
-        String agentId) {}
+        String agentId,
+        String workspacePath) {}

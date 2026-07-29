@@ -258,10 +258,10 @@ public class DraftHouseMcpTools {
                 sb.append(",\"disposition\":{");
                 boolean first = true;
                 for (DispositionAxis axis : DispositionAxis.values()) {
-                    var val = d.disposition().get(axis);
-                    if (val.isPresent()) {
+                    String term = d.disposition().primaryTerm(axis);
+                    if (term != null) {
                         if (!first) sb.append(",");
-                        sb.append("\"").append(axis.jsonKey()).append("\":").append(jsonString(val.get()));
+                        sb.append("\"").append(axis.jsonKey()).append("\":").append(jsonString(term));
                         first = false;
                     }
                 }
