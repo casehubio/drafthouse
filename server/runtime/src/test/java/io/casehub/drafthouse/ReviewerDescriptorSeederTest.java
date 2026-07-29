@@ -34,8 +34,8 @@ class ReviewerDescriptorSeederTest {
                 ReviewerDescriptorSeeder.TENANCY_ID).orElseThrow();
         assertThat(descriptor.name()).isEqualTo("Structural Reviewer");
         assertThat(descriptor.slot()).isEqualTo("document-reviewer");
-        assertThat(descriptor.disposition().conflictMode()).isEqualTo("collaborative");
-        assertThat(descriptor.disposition().ruleFollowing()).isEqualTo("strict");
+        assertThat(descriptor.disposition().primaryTerm(io.casehub.eidos.api.DispositionAxis.CONFLICT_MODE)).isEqualTo("collaborative");
+        assertThat(descriptor.disposition().primaryTerm(io.casehub.eidos.api.DispositionAxis.RULE_FOLLOWING)).isEqualTo("strict");
         assertThat(descriptor.briefing()).isNotBlank();
         assertThat(descriptor.capabilities()).hasSize(1);
         assertThat(descriptor.capabilities().get(0).name()).isEqualTo("document-review");
@@ -49,8 +49,8 @@ class ReviewerDescriptorSeederTest {
 
         var descriptor = registry.findById("drafthouse-content-reviewer",
                 ReviewerDescriptorSeeder.TENANCY_ID).orElseThrow();
-        assertThat(descriptor.disposition().conflictMode()).isEqualTo("competing");
-        assertThat(descriptor.disposition().riskAppetite()).isEqualTo("cautious");
+        assertThat(descriptor.disposition().primaryTerm(io.casehub.eidos.api.DispositionAxis.CONFLICT_MODE)).isEqualTo("competing");
+        assertThat(descriptor.disposition().primaryTerm(io.casehub.eidos.api.DispositionAxis.RISK_APPETITE)).isEqualTo("cautious");
     }
 
     @Test
