@@ -2,7 +2,13 @@ package io.casehub.drafthouse.debate;
 
 import io.casehub.blocks.channel.BoundedProjectionDecorator;
 import io.casehub.blocks.channel.ChannelMessageMeta;
-import io.casehub.blocks.conversation.*;
+import io.casehub.blocks.conversation.ConversationFold;
+import io.casehub.blocks.conversation.ConversationProjection;
+import io.casehub.blocks.conversation.ConversationProtocol;
+import io.casehub.blocks.conversation.ConversationRenderer;
+import io.casehub.blocks.conversation.ConversationRendererConfig;
+import io.casehub.blocks.conversation.ConversationState;
+import io.casehub.blocks.conversation.Priority;
 import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import io.casehub.qhorus.api.spi.RenderableProjection;
@@ -37,8 +43,9 @@ public class DebateChannelProjection extends ConversationProjection
                             Map.entry("DECLINED", "🚫"),   // prohibited
                             Map.entry("DISPUTED", "⚡"),         // lightning
                             Map.entry("VERIFIED", "✅"),
-                            Map.entry("DEFERRED", "⏸")))
-                    .resolvedStatuses(Set.of("AGREED", "DECLINED", "VERIFIED", "DEFERRED"))
+                            Map.entry("DEFERRED", "⏸"),
+                            Map.entry("HUMAN_OVERRIDE", "👤")))
+                    .resolvedStatuses(Set.of("AGREED", "DECLINED", "VERIFIED", "DEFERRED", "HUMAN_OVERRIDE"))
                     .escalatedStatuses(Set.of("ESCALATED"))
                     .priorityLabel(Map.of(
                             Priority.HIGH, "P1",
@@ -53,8 +60,11 @@ public class DebateChannelProjection extends ConversationProjection
                             Map.entry("FLAG_HUMAN", "flag"),
                             Map.entry("DECLINED", "declined"),
                             Map.entry("VERIFIED", "verified"),
-                            Map.entry("DEFERRED", "deferred")))
-                    .roleLabel(Map.of("REV", "REV", "IMP", "IMP"))
+                            Map.entry("DEFERRED", "deferred"),
+                            Map.entry("COMMENT", "commented"),
+                            Map.entry("HUMAN_OVERRIDE", "overrode"),
+                            Map.entry("REPRIORITISE", "reprioritised")))
+                    .roleLabel(Map.of("REV", "REV", "IMP", "IMP", "HUMAN", "HUM"))
                     .build();
 
     private final ConversationRenderer renderer = new ConversationRenderer(DEBATE_CONFIG);
@@ -92,28 +102,43 @@ public class DebateChannelProjection extends ConversationProjection
             case "DECLINED" -> "DECLINED";
             case "VERIFIED" -> "VERIFIED";
             case "DEFERRED" -> "DEFERRED";
+            case "HUMAN_OVERRIDE" -> "HUMAN_OVERRIDE";
+            case "COMMENT" -> null;
             default -> null;
         };
     }
 
-    /**
-     * Intercepts ROUND_SNAPSHOT entries before base class processing to prevent
-     * timeline markers from being treated as unknown domain entries (which would
-     * log warnings). Returns state unchanged for ROUND_SNAPSHOT.
-     * <p>
-     * Must never throw — see PP-20260610-a47ef5 (apply must not throw; no try-catch
-     * in ProjectionService.fold()). Wraps meta parsing in try-catch and falls through
-     * to super.apply() on any failure.
-     */
     @Override
     public ConversationState apply(ConversationState state, MessageView message) {
         try {
-            Map<String, String> meta = ChannelMessageMeta.parseMeta(sentinel(), message.content());
-            if ("ROUND_SNAPSHOT".equals(meta.get(ConversationProtocol.ENTRY_TYPE))) {
+            Map<String, String> meta      = ChannelMessageMeta.parseMeta(sentinel(), message.content());
+            String              entryType = meta.get(ConversationProtocol.ENTRY_TYPE);
+            if ("ROUND_SNAPSHOT".equals(entryType)) {
                 return state;
             }
+            if ("REPRIORITISE".equals(entryType)) {
+                String priorityStr = meta.get(ConversationProtocol.PRIORITY);
+                if (priorityStr == null) {
+                    LOG.log(Level.WARNING, "REPRIORITISE missing priority — discarded");
+                    return state;
+                }
+                Priority newPriority;
+                try {
+                    newPriority = Priority.valueOf(priorityStr.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    LOG.log(Level.WARNING, "REPRIORITISE invalid priority: " + priorityStr + " — discarded");
+                    return state;
+                }
+                String role  = meta.get(ConversationProtocol.ROLE);
+                int    round = ChannelMessageMeta.parseInt(meta, ConversationProtocol.ROUND);
+                String body  = ChannelMessageMeta.bodyContent(sentinel(), message.content());
+                return ConversationFold.reprioritisePoint(state,
+                                                          message.correlationId(), message.id(), message.type(),
+                                                          message.sender(), message.createdAt(),
+                                                          role, round, newPriority, body);
+            }
         } catch (Exception e) {
-            LOG.log(Level.WARNING, "ROUND_SNAPSHOT check failed — delegating to base", e);
+            LOG.log(Level.WARNING, "Pre-base-class check failed — delegating to base", e);
         }
         return super.apply(state, message);
     }

@@ -6,10 +6,11 @@ import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.message.MessageView;
 import io.casehub.qhorus.api.spi.ProjectionResult;
 import org.junit.jupiter.api.Test;
+
 import java.util.List;
 
 import static io.casehub.drafthouse.debate.DebateProtocol.META_SENTINEL;
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests DraftHouse-specific hook mappings in {@link DebateChannelProjection}.
@@ -245,5 +246,61 @@ class DebateChannelProjectionTest {
         ConversationState result = proj.apply(initial, message);
 
         assertThat(result).isSameAs(initial);
+    }
+
+    @Test
+    void comment_doesNotChangeStatus() {
+        ConversationState s0 = proj.apply(proj.identity(),
+                                          msg(MessageType.QUERY, "pt-1",
+                                              ratefacts("RAISE", "REV", 1, "HIGH", "ISOLATED"), "Issue."));
+        ConversationState s1 = proj.apply(s0,
+                                          msg(MessageType.RESPONSE, "pt-1", ratefacts("COMMENT", "HUMAN", 1), "Human comment."));
+        assertThat(s1.points().get("pt-1").status()).isEqualTo("OPEN");
+        assertThat(s1.points().get("pt-1").thread()).hasSize(2);
+    }
+
+    @Test
+    void humanOverride_transitionsToHumanOverride() {
+        ConversationState s0 = proj.apply(proj.identity(),
+                                          msg(MessageType.QUERY, "pt-1",
+                                              ratefacts("RAISE", "REV", 1, "HIGH", "ISOLATED"), "Issue."));
+        ConversationState s1 = proj.apply(s0,
+                                          msg(MessageType.DONE, "pt-1", ratefacts("HUMAN_OVERRIDE", "HUMAN", 1), "Overridden."));
+        assertThat(s1.points().get("pt-1").status()).isEqualTo("HUMAN_OVERRIDE");
+    }
+
+    @Test
+    void reprioritise_updatesPriority() {
+        ConversationState s0 = proj.apply(proj.identity(),
+                                          msg(MessageType.QUERY, "pt-1",
+                                              ratefacts("RAISE", "REV", 1, "LOW", "ISOLATED"), "Minor issue."));
+        String reprioritiseMeta = "entryType=REPRIORITISE|role=HUMAN|round=2|priority=HIGH";
+        ConversationState s1 = proj.apply(s0,
+                                          msg(MessageType.RESPONSE, "pt-1", reprioritiseMeta, "Actually critical."));
+        assertThat(s1.points().get("pt-1").classification().priority())
+                .isEqualTo(io.casehub.blocks.conversation.Priority.HIGH);
+        assertThat(s1.points().get("pt-1").thread()).hasSize(2);
+        assertThat(s1.points().get("pt-1").status()).isEqualTo("OPEN");
+    }
+
+    @Test
+    void reprioritise_unknownPoint_returnsStateUnchanged() {
+        ConversationState s0               = proj.identity();
+        String            reprioritiseMeta = "entryType=REPRIORITISE|role=HUMAN|round=1|priority=HIGH";
+        ConversationState s1 = proj.apply(s0,
+                                          msg(MessageType.RESPONSE, "nonexistent", reprioritiseMeta, "Escalating."));
+        assertThat(s1.points()).isEmpty();
+    }
+
+    @Test
+    void reprioritise_malformedPriority_returnsStateUnchanged() {
+        ConversationState s0 = proj.apply(proj.identity(),
+                                          msg(MessageType.QUERY, "pt-1",
+                                              ratefacts("RAISE", "REV", 1, "LOW", "ISOLATED"), "Issue."));
+        String reprioritiseMeta = "entryType=REPRIORITISE|role=HUMAN|round=2|priority=INVALID";
+        ConversationState s1 = proj.apply(s0,
+                                          msg(MessageType.RESPONSE, "pt-1", reprioritiseMeta, "Bad priority."));
+        assertThat(s1.points().get("pt-1").classification().priority())
+                .isEqualTo(io.casehub.blocks.conversation.Priority.LOW);
     }
 }
