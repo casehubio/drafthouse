@@ -17,7 +17,10 @@ interface DebateStreamEntry {
 const AGENT_LABELS: Record<string, string> = {
   REV: 'Reviewer',
   IMP: 'Implementer',
-  FAC: 'Facilitator',
+  HUMAN: 'Human',
+  SUPERVISOR: 'Supervisor',
+  MODERATOR: 'Moderator',
+  SELECTOR: 'Selector',
 };
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
@@ -33,6 +36,11 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
   SUB_TASK_FINDING: 'sub-task finding',
   SUB_TASK_ERROR: 'sub-task error',
   RESTART_CONTEXT: 'restart',
+  COMMENT: 'commented',
+  HUMAN_OVERRIDE: 'overrode',
+  REPRIORITISE: 'reprioritised',
+  VERIFIED: 'verified',
+  DEFERRED: 'deferred',
 };
 
 @customElement('channel-feed')
@@ -181,6 +189,9 @@ export class ChannelFeed extends LitElement {
       font-weight: 600;
       color: var(--sepia);
     }
+    .entry-agent.human {
+      color: var(--human-badge, #e67e22);
+    }
 
     .entry-timestamp {
       margin-left: auto;
@@ -309,7 +320,7 @@ export class ChannelFeed extends LitElement {
     return html`
       <div class="entry entry-${typeClass}" @click=${() => this._onEntryClick(entry)}>
         <div class="entry-header">
-          <span class="entry-agent">${AGENT_LABELS[entry.agentRole] || entry.agentRole}</span>
+          <span class="entry-agent ${entry.agentRole === 'HUMAN' ? 'human' : ''}">${entry.agentRole === 'HUMAN' ? '👤 ' : ''}${AGENT_LABELS[entry.agentRole] || entry.agentRole}</span>
           <span>${ENTRY_TYPE_LABELS[entry.entryType] || entry.entryType}</span>
           ${entry.timestamp ? html`<span class="entry-timestamp">${this._formatTimestamp(entry.timestamp)}</span>` : nothing}
         </div>
