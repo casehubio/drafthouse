@@ -426,11 +426,17 @@ export class ReviewTracker extends LitElement {
   }
 
   private _batchEligibleCount(points: DerivedPoint[]): number {
+    return this._batchEligiblePoints(points).length;
+  }
+
+  private _batchEligiblePoints(points: DerivedPoint[]): DerivedPoint[] {
     return points.filter(p => {
       if (RESOLVED_STATUSES.has(p.status)) return false;
       const raiseEntry = this._entries.find(e => e.pointId === p.pointId && e.entryType === 'RAISE');
-      return raiseEntry && (!raiseEntry.entryType || raiseEntry.entryType === 'RAISE');
-    }).length;
+      if (!raiseEntry) return false;
+      const priority = (raiseEntry as DebateStreamEntry & { priority?: string }).priority;
+      return priority?.toUpperCase()?.includes('LOW');
+    });
   }
 
   private _renderPoint(point: DerivedPoint) {
@@ -519,14 +525,7 @@ export class ReviewTracker extends LitElement {
   private async _submitBatch(verdict: string) {
     if (!this._debateSessionId) return;
     const points = this._derivePoints();
-    const eligible = points
-      .filter(p => !RESOLVED_STATUSES.has(p.status))
-      .filter(p => {
-        const raiseEntry = this._entries.find(e => e.pointId === p.pointId && e.entryType === 'RAISE');
-        return raiseEntry && raiseEntry.entryType === 'RAISE' &&
-          (raiseEntry as DebateStreamEntry & { priority?: string }).priority?.toUpperCase()?.includes('LOW');
-      })
-      .map(p => p.pointId);
+    const eligible = this._batchEligiblePoints(points).map(p => p.pointId);
     if (eligible.length === 0) return;
     await fetch(`/api/debate/${this._debateSessionId}/human/batch`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
