@@ -31,7 +31,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -816,6 +815,7 @@ public class DebateMcpTools {
             }
 
             registry.put(session);
+            session.setWorkspacePath(workspacePath);
 
             // Register REV and IMP before channelGateway.initChannel — matches startDebate pattern
             sender(session, AgentType.REV);
@@ -960,18 +960,5 @@ public class DebateMcpTools {
      * Returns the Qhorus instance ID for the given role, registering it on first use.
      * The registration is idempotent — InstanceService.register() is an upsert.
      */
-    private String sender(final DebateSession session, final AgentType role) {
-        String existing = session.instanceIdFor(role);
-        String instanceId = session.registerIfAbsent(role, () -> {
-            final String id = DebateSession.instanceId(role, session.debateSessionId());
-            instanceService.register(id,
-                                     "DraftHouse " + role.name().toLowerCase() + " " + session.debateSessionId(),
-                                     List.of("document-debate-" + role.name().toLowerCase()));
-            return id;
-        });
-        if (existing == null) {
-            registry.persist(session);
-        }
-        return instanceId;
-    }
+    private String sender(final DebateSession session, final AgentType role) {return DebateParticipants.ensureSender(session, role, instanceService, registry);}
 }
