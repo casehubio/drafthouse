@@ -133,9 +133,9 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 | `server/runtime/src/main/webui/src/panels/workspace-status.ts` | `<workspace-status>` — topbar live workspace watching progress (pages-event subscriber, workspace-progress topic) |
 | `server/runtime/src/main/webui/src/panels/brainstorm-options.ts` | `<brainstorm-options>` — interactive option cards with status, actions, convergence summary (pages-event subscriber) |
 | `server/runtime/src/main/webui/src/panels/brainstorm-picker.ts` | `<brainstorm-picker>` — topbar session switcher dropdown for brainstorm sessions (pages-event subscriber, standalone custom element) |
-| `server/api/` | Pure Java domain model — depends on casehub-blocks (context tracking, message meta, bounded projection) and qhorus-api; includes `debate/` package, `DebateSession`, `DebateSessionSnapshot`, `DebateSessionStore` SPI, `DocumentEntry`, `ComparisonPair`, `ResolvedReviewer`, `EntryType` (RAISE, AGREE, COUNTER, DISPUTE, QUALIFY, FLAG_HUMAN, DECLINED, VERIFIED, DEFERRED, MEMO, SUB_TASK_*, RESTART_CONTEXT, ROUND_SNAPSHOT), `AgentType`, `SnapshotSource` (sealed), `DocumentSnapshot`, `DocumentTimeline`, `BrainstormSession`, `BrainstormOption` |
+| `server/api/` | Pure Java domain model — depends on casehub-blocks (context tracking, message meta, bounded projection) and qhorus-api; includes `debate/` package, `DebateSession`, `DebateSessionSnapshot`, `DebateSessionStore` SPI, `DocumentEntry`, `ComparisonPair`, `ResolvedReviewer`, `EntryType` (RAISE, AGREE, COUNTER, DISPUTE, QUALIFY, FLAG_HUMAN, DECLINED, VERIFIED, DEFERRED, MEMO, SUB_TASK_*, RESTART_CONTEXT, ROUND_SNAPSHOT, COMMENT, HUMAN_OVERRIDE, REPRIORITISE), `AgentType` (REV, IMP, SUPERVISOR, MODERATOR, SELECTOR, HUMAN), `SnapshotSource` (sealed), `DocumentSnapshot`, `DocumentTimeline`, `BrainstormSession`, `BrainstormOption` |
 | `server/runtime/` | Quarkus 3.34.3 app — all resources, Qhorus, platform AgentProvider |
-| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Ui, DraftHouseMcpTools, DebateMcpTools, BrainstormMcpTools, BrainstormService, BrainstormResource, DraftHouseInstances, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, BrainstormSessionRegistry, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, WebSocketEventBus, DebateWebSocket, TerminalEndpoint, NoOpDebateSessionStore, JpaDebateSessionStore, DebateSessionEntity, DraftHouseReviewerRegistry, SimplePromptRenderer, ReviewerDescriptorSeeder, ReviewerResolver, DocumentReviewer, PlatformDebateAgentProvider, debate/ (includes WorkspaceParser, WorkspaceReplayAdapter, WorkspaceWatcher, ProgressLogParser) |
+| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Ui, DraftHouseMcpTools, DebateMcpTools, BrainstormMcpTools, BrainstormService, BrainstormResource, DraftHouseInstances, HumanActionResource, DebateParticipants, DecisionFileWriter, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, BrainstormSessionRegistry, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, WebSocketEventBus, DebateWebSocket, TerminalEndpoint, NoOpDebateSessionStore, JpaDebateSessionStore, DebateSessionEntity, DraftHouseReviewerRegistry, SimplePromptRenderer, ReviewerDescriptorSeeder, ReviewerResolver, DocumentReviewer, PlatformDebateAgentProvider, debate/ (includes WorkspaceParser, WorkspaceReplayAdapter, WorkspaceWatcher, ProgressLogParser) |
 | `server/claude-agent/` | Optional module — ClaudeAgentSdkDebateAgentProvider (AgentProvider-backed, displaces PlatformDebateAgentProvider) |
 | `server/runtime/src/main/resources/application.properties` | Quarkus config |
 | `server/runtime/target/drafthouse-server-runner.jar` | Built uber-jar (not committed) |
@@ -168,6 +168,7 @@ Quarkus Server (drafthouse-server-runner.jar)
   ├── GET /api/debate/sessions     ← active debate session list
   ├── MCP tools (brainstorm) ← start_brainstorm, present_options, update_option, set_recommendation, mark_eliminated, mark_selected, end_brainstorm
   ├── PATCH /api/brainstorm/{id}/options/{optionId}  ← browser-initiated option status change
+  ├── POST /api/debate/{id}/human/*  ← HIL actions (comment, raise, override, prioritise, batch)
   ├── GET /api/brainstorm/sessions  ← active brainstorm session list
   └── WS  /api/terminal     ← PTY-over-WebSocket (pty4j) — terminal sessions for brainstorming mode
 
@@ -183,7 +184,8 @@ Browser UI (casehub-pages workbench + Lit panels)
   ├── <channel-feed>               ← debate feed (LitElement, Shadow DOM)
   │   └── pages-event              ← debate events via WebSocket, grouped by round
   ├── <review-tracker>             ← review checklist (LitElement, Shadow DOM)
-  │   └── pages-event              ← derives status per pointId from event stream
+  │   ├── pages-event              ← derives status per pointId from event stream
+  │   └── POST /api/debate/{id}/human/*  ← comment, override, priority actions on points
   ├── <context-gauge>              ← context usage gauge (LitElement, Shadow DOM, topbar)
   │   └── pages-event              ← context-usage metadata events
   ├── <doc-picker>                 ← document badge dropdown (LitElement, Shadow DOM, topbar)

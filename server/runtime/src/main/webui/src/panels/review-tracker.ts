@@ -34,6 +34,7 @@ const ENTRY_TO_STATUS: Record<string, string> = {
   DECLINED: 'DECLINED',
   VERIFIED: 'VERIFIED',
   DEFERRED: 'DEFERRED',
+  HUMAN_OVERRIDE: 'HUMAN_OVERRIDE',
 };
 
 const STATUS_ORDER: Record<string, number> = {
@@ -45,6 +46,7 @@ const STATUS_ORDER: Record<string, number> = {
   DECLINED: 5,
   VERIFIED: 6,
   DEFERRED: 7,
+  HUMAN_OVERRIDE: 8,
 };
 
 const STATUS_ICON: Record<string, string> = {
@@ -56,21 +58,26 @@ const STATUS_ICON: Record<string, string> = {
   DISPUTED: '✕',
   VERIFIED: '✓✓',
   DEFERRED: '⏸',
+  HUMAN_OVERRIDE: '👤',
 };
 
-const AGENT_SHORT: Record<string, string> = { REV: 'REV', IMP: 'IMP', FAC: 'FAC' };
+const AGENT_SHORT: Record<string, string> = { REV: 'REV', IMP: 'IMP', HUMAN: 'HUM', SUPERVISOR: 'SUP', MODERATOR: 'MOD', SELECTOR: 'SEL' };
 const ACTION_SHORT: Record<string, string> = {
   RAISE: 'raised', AGREE: 'agreed', COUNTER: 'countered', DISPUTE: 'disputed',
   QUALIFY: 'qualified', FLAG_HUMAN: 'flagged', DECLINED: 'declined',
+  COMMENT: 'commented', HUMAN_OVERRIDE: 'overrode', REPRIORITISE: 'reprioritised',
 };
 
-const RESOLVED_STATUSES = new Set(['AGREED', 'DECLINED', 'VERIFIED', 'DEFERRED']);
+const RESOLVED_STATUSES = new Set(['AGREED', 'DECLINED', 'VERIFIED', 'DEFERRED', 'HUMAN_OVERRIDE']);
 
 @customElement('review-tracker')
 export class ReviewTracker extends LitElement {
   @state() private _entries: DebateStreamEntry[] = [];
   @state() private _hideResolved = false;
   @state() private _selectedPointId: string | null = null;
+  @state() private _commentingPointId: string | null = null;
+  @state() private _overridingPointId: string | null = null;
+  @state() private _debateSessionId: string | null = null;
 
   private _configured = false;
   private _cleanups: (() => void)[] = [];
@@ -78,6 +85,7 @@ export class ReviewTracker extends LitElement {
   configure(props: Record<string, unknown>): void {
     this._configured = true;
     if (props.debateSessionId !== undefined) {
+      this._debateSessionId = props.debateSessionId as string;
       this._entries = [];
     }
   }
@@ -336,6 +344,38 @@ export class ReviewTracker extends LitElement {
       outline-offset: -2px;
       background: rgba(74, 106, 138, 0.08);
     }
+    .point-item.status-human_override { border-left: 3px solid var(--human-badge, #e67e22); opacity: 0.6; }
+    .point-actions {
+      display: flex; gap: 4px; margin-top: 4px;
+    }
+    .action-btn {
+      background: var(--surface-2, #f5f0e8); border: 1px solid var(--border, #d4c9b0);
+      color: var(--muted, #8a7e6a); cursor: pointer;
+      font-size: 12px; padding: 2px 6px; border-radius: 3px;
+    }
+    .action-btn:hover { background: var(--surface-3, #ede5d5); }
+    .priority-select { appearance: none; width: 32px; text-align: center; }
+    .batch-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; background: var(--surface-1, #faf7f2);
+      border-bottom: 1px solid var(--border, #d4c9b0); font-size: 12px;
+    }
+    .batch-bar button {
+      background: var(--accent, #4a6a8a); color: #fff; border: none;
+      padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;
+    }
+    .inline-input {
+      display: flex; gap: 4px; margin-top: 4px;
+    }
+    .comment-input, .override-input {
+      flex: 1; padding: 4px;
+      background: var(--bg, #faf7f2); border: 1px solid var(--border, #d4c9b0);
+      color: var(--ink, #3a3226); font-size: 12px; border-radius: 3px;
+    }
+    .submit-btn {
+      background: var(--accent, #4a6a8a); color: #fff; border: none;
+      padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;
+    }
   `;
 
   override render() {
@@ -368,6 +408,14 @@ export class ReviewTracker extends LitElement {
           </label>
         </div>
 
+        ${this._batchEligibleCount(points) >= 2 && this._debateSessionId ? html`
+          <div class="batch-bar">
+            <span>${this._batchEligibleCount(points)} low-priority points open</span>
+            <button @click=${() => this._submitBatch('VERIFIED')}>Accept all</button>
+            <button @click=${() => this._submitBatch('DEFERRED')}>Defer all</button>
+          </div>
+        ` : nothing}
+
         <div class="points-list">
           ${visiblePoints.length === 0
             ? html`<div class="placeholder">${total === 0 ? 'No review points yet' : 'All points resolved'}</div>`
@@ -377,11 +425,26 @@ export class ReviewTracker extends LitElement {
     `;
   }
 
+  private _batchEligibleCount(points: DerivedPoint[]): number {
+    return this._batchEligiblePoints(points).length;
+  }
+
+  private _batchEligiblePoints(points: DerivedPoint[]): DerivedPoint[] {
+    return points.filter(p => {
+      if (RESOLVED_STATUSES.has(p.status)) return false;
+      const raiseEntry = this._entries.find(e => e.pointId === p.pointId && e.entryType === 'RAISE');
+      if (!raiseEntry) return false;
+      const priority = (raiseEntry as DebateStreamEntry & { priority?: string }).priority;
+      return priority?.toUpperCase()?.includes('LOW');
+    });
+  }
+
   private _renderPoint(point: DerivedPoint) {
     const statusClass = point.status.toLowerCase();
     const classes = [`point-item`, `status-${statusClass}`];
     if (point.isQualifyActive) classes.push('qualify-active');
     if (this._selectedPointId === point.pointId) classes.push('selected');
+    const isResolved = RESOLVED_STATUSES.has(point.status);
 
     return html`
       <div class=${classes.join(' ')} @click=${() => this._onPointClick(point)}>
@@ -391,7 +454,82 @@ export class ReviewTracker extends LitElement {
         </div>
         ${point.location ? html`<div class="point-location">${point.location}</div>` : nothing}
         <div class="point-trail">${point.trail}</div>
+        ${!isResolved && this._debateSessionId ? html`
+          <div class="point-actions">
+            <button class="action-btn" title="Comment"
+              @click=${(e: Event) => { e.stopPropagation(); this._commentingPointId = this._commentingPointId === point.pointId ? null : point.pointId; this._overridingPointId = null; }}>💬</button>
+            <button class="action-btn" title="Override"
+              @click=${(e: Event) => { e.stopPropagation(); this._overridingPointId = this._overridingPointId === point.pointId ? null : point.pointId; this._commentingPointId = null; }}>👤</button>
+            <select class="action-btn priority-select" title="Priority"
+              @change=${(e: Event) => { e.stopPropagation(); this._onPriorityChange(point, e); }}>
+              <option value="">↕</option>
+              <option value="P1">P1</option>
+              <option value="P2">P2</option>
+              <option value="P3">P3</option>
+            </select>
+          </div>
+          ${this._commentingPointId === point.pointId ? html`
+            <div class="inline-input">
+              <input type="text" class="comment-input" placeholder="Add comment..."
+                @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') this._submitComment(point.pointId, (e.target as HTMLInputElement).value); }}>
+              <button class="submit-btn" @click=${(e: Event) => {
+                const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                this._submitComment(point.pointId, input.value);
+              }}>Send</button>
+            </div>
+          ` : nothing}
+          ${this._overridingPointId === point.pointId ? html`
+            <div class="inline-input">
+              <input type="text" class="override-input" placeholder="Override reason..."
+                @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') this._submitOverride(point.pointId, (e.target as HTMLInputElement).value); }}>
+              <button class="submit-btn" @click=${(e: Event) => {
+                const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                this._submitOverride(point.pointId, input.value);
+              }}>Override</button>
+            </div>
+          ` : nothing}
+        ` : nothing}
       </div>
     `;
+  }
+
+  private async _submitComment(pointId: string, content: string) {
+    if (!content.trim() || !this._debateSessionId) return;
+    await fetch(`/api/debate/${this._debateSessionId}/human/comment`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pointId, content: content.trim() }),
+    });
+    this._commentingPointId = null;
+  }
+
+  private async _submitOverride(pointId: string, reason: string) {
+    if (!reason.trim() || !this._debateSessionId) return;
+    await fetch(`/api/debate/${this._debateSessionId}/human/override`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pointId, reason: reason.trim() }),
+    });
+    this._overridingPointId = null;
+  }
+
+  private async _onPriorityChange(point: DerivedPoint, e: Event) {
+    const select = e.target as HTMLSelectElement;
+    const newPriority = select.value;
+    if (!newPriority || !this._debateSessionId) { select.value = ''; return; }
+    await fetch(`/api/debate/${this._debateSessionId}/human/prioritise`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pointId: point.pointId, newPriority }),
+    });
+    select.value = '';
+  }
+
+  private async _submitBatch(verdict: string) {
+    if (!this._debateSessionId) return;
+    const points = this._derivePoints();
+    const eligible = this._batchEligiblePoints(points).map(p => p.pointId);
+    if (eligible.length === 0) return;
+    await fetch(`/api/debate/${this._debateSessionId}/human/batch`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pointIds: eligible, verdict }),
+    });
   }
 }
