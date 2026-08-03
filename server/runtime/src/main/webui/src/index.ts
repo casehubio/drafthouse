@@ -3,16 +3,8 @@ import {
   rows, split, hostPanel, withId, html,
 } from "@casehubio/pages-ui";
 
-// Import panels — side-effect imports register custom elements
-import "./panels/document-diff.js";
-import "./panels/channel-feed.js";
-import "./panels/review-tracker.js";
-import "./panels/context-gauge.js";
-import "./panels/doc-picker.js";
-import "./panels/document-timeline.js";
-import "./panels/workspace-status.js";
-import "./panels/brainstorm-options.js";
-import "./panels/brainstorm-picker.js";
+// Import panels from blocks-ui-document-workbench
+import "@casehubio/blocks-ui-document-workbench";
 import "@casehubio/pages-component-terminal";
 
 // ── Electron IPC Bridge ──────────────────────────────────────────────────
@@ -42,7 +34,7 @@ if (window.compare) {
 
 // Register panel types with pages
 registerPanel("diff-viewer", "document-diff");
-registerPanel("debate-feed", "channel-feed");
+registerPanel("debate-feed", "debate-feed");
 registerPanel("review-tracker", "review-tracker");
 registerPanel("context-gauge", "context-gauge");
 registerPanel("document-timeline", "document-timeline");
@@ -175,7 +167,7 @@ function connectDebateSession(sessionId: string): void {
   wsSource.subscribe(("debate:" + sessionId) as any,
     { uuid: ("debate:" + sessionId) as any } as any, noOpListener, noOpError);
 
-  const debateEl = document.querySelector("channel-feed") as any;
+  const debateEl = document.querySelector("debate-feed") as any;
   const reviewEl = document.querySelector("review-tracker") as any;
   const diffEl = document.querySelector("document-diff") as any;
 

@@ -88,7 +88,7 @@ class CrossPanelE2ETest {
         assertEquals(0.0, scrollTopB(), "Panel B should start at top");
 
         // Click the debate entry — shell routes point-selected → scrollToLocation
-        page.locator("channel-feed .entry-raise").click();
+        page.locator("debate-feed .entry-raise").click();
         page.waitForTimeout(500);
 
         assertTrue(scrollTopA() > 0, "Panel A should have scrolled after clicking debate entry with §3");
@@ -128,7 +128,7 @@ class CrossPanelE2ETest {
         double beforeA = scrollTopA();
         double beforeB = scrollTopB();
 
-        page.locator("channel-feed .entry-raise").click();
+        page.locator("debate-feed .entry-raise").click();
         page.waitForTimeout(500);
 
         assertEquals(beforeA, scrollTopA(), "Panel A scrollTop should be unchanged when no location");
@@ -148,7 +148,7 @@ class CrossPanelE2ETest {
         assertEquals(0.0, scrollTopA(), "Panel A should start at top");
         assertEquals(0.0, scrollTopB(), "Panel B should start at top");
 
-        page.locator("channel-feed .entry-raise").click();
+        page.locator("debate-feed .entry-raise").click();
         page.waitForTimeout(500);
 
         assertTrue(scrollTopA() > 0, "Panel A should have scrolled to 'Scroll Sync' heading");

@@ -1,6 +1,9 @@
 import { build, context } from "esbuild";
 import { copyFileSync, mkdirSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const isWatch = process.argv.includes("--watch");
 
 mkdirSync("dist", { recursive: true });
@@ -14,6 +17,9 @@ const options = {
   target: "es2022",
   minify: false,
   sourcemap: true,
+  alias: {
+    "@casehubio/blocks-ui-document-workbench": resolve(__dirname, "../../../../../../blocks-ui/components/document-workbench/src"),
+  },
 };
 
 if (isWatch) {

@@ -91,7 +91,7 @@ class WorkspaceReplayE2ETest {
 
         DebateE2EFixtures.waitForDebateEntries(page, 1);
 
-        Locator entries = page.locator("channel-feed .entry");
+        Locator entries = page.locator("debate-feed .entry");
         assertTrue(entries.count() >= 4, "should show debate conversation entries");
     }
 }
