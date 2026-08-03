@@ -182,4 +182,69 @@ class WorkspaceWatcherTest {
         watcher.stop();
     }
 
+
+    @Test
+    void watcher_dispatches_deferred_when_tracker_status_changes(@TempDir Path tmpDir) throws Exception {
+        Path responsesDir = tmpDir.resolve("responses");
+        Files.createDirectories(responsesDir);
+        Files.writeString(tmpDir.resolve(".spec-path"), "/tmp/test.md");
+
+        String reviewerContent = "## R1-01: Missing validation\n\nNo input validation.\n\nSIGNAL: CONTINUE\n";
+        Files.writeString(responsesDir.resolve("reviewer-1.md"), reviewerContent);
+
+        Channel channel = channelService.create(ChannelCreateRequest.builder(
+                                                                            "drafthouse/debate/watcher-deferred-" + System.nanoTime())
+                                                                    .description("watcher deferred test").semantic(ChannelSemantic.APPEND).build());
+
+        DebateSession session = new DebateSession(
+                channel.id(), channel.id().toString(), channel.name(), null);
+
+        channelGateway.initChannel(channel.id(),
+                                   new ChannelRef(channel.id(), channel.name()));
+
+        String revId = DebateSession.instanceId(AgentType.REV, session.debateSessionId());
+        instanceService.register(revId, "test rev", List.of("document-debate-rev"));
+        session.registerIfAbsent(AgentType.REV, () -> revId);
+
+        String impId = DebateSession.instanceId(AgentType.IMP, session.debateSessionId());
+        instanceService.register(impId, "test imp", List.of("document-debate-imp"));
+        session.registerIfAbsent(AgentType.IMP, () -> impId);
+
+        var adapter = new WorkspaceReplayAdapter(
+                messageService, instanceService, channelGateway, eventBus);
+
+        var existingIds = new HashSet<String>();
+        var raiseIds    = new HashMap<String, Long>();
+
+        var round1 = WorkspaceParser.parseRoundFromMarkdown(responsesDir, 1, existingIds);
+        adapter.dispatchIssues(channel.id(),
+                               session.instanceIdFor(AgentType.REV), round1, raiseIds);
+        round1.issues().forEach(i -> existingIds.add(i.issueId()));
+        long lastMsgId = messageService.pollAfter(channel.id(), 0L, Integer.MAX_VALUE)
+                                       .stream().mapToLong(m -> m.id()).max().orElse(0L);
+
+        var watcher = new WorkspaceWatcher(
+                adapter, eventBus, session, messageService, null, () -> {});
+        watcher.start(tmpDir, 0, existingIds, raiseIds, lastMsgId, null, null);
+
+        Thread.sleep(500);
+
+        String trackerContent = "### R1-01: Missing validation\n\n- **Status:** DEFERRED\n- **Spec commit:** none\n";
+        Files.writeString(tmpDir.resolve("tracker.md"), trackerContent);
+        Thread.sleep(200);
+
+        String impContent = "## R1-01: FIXED\n\nAdded null check.\n\nSIGNAL: CONTINUE\n";
+        Files.writeString(responsesDir.resolve("implementor-1.md"), impContent);
+
+        Thread.sleep(3000);
+
+        var messages = messageService.pollAfter(channel.id(), lastMsgId, Integer.MAX_VALUE);
+        var entries = messages.stream()
+                              .map(DebateStreamEntry::from).filter(Objects::nonNull).toList();
+
+        assertTrue(entries.stream().anyMatch(e -> e.entryType() == EntryType.DEFERRED),
+                   "should contain a DEFERRED entry after tracker shows DEFERRED status");
+
+        watcher.stop();
+    }
 }

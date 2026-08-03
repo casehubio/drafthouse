@@ -1,7 +1,12 @@
 package io.casehub.drafthouse.debate;
 
+import io.casehub.blocks.channel.ChannelMessageMeta;
+import io.casehub.blocks.conversation.ConversationProtocol;
 import io.casehub.drafthouse.DebateSession;
 import io.casehub.drafthouse.WebSocketEventBus;
+import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.message.MessageDispatch;
+import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.message.MessageService;
 import io.methvin.watcher.DirectoryChangeEvent;
 import io.methvin.watcher.DirectoryWatcher;
@@ -12,6 +17,7 @@ import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -46,6 +52,8 @@ public class WorkspaceWatcher implements Closeable {
     private String projectRepoPath;
     private String specPath;
     private Path workspacePath;
+    private volatile Map<String, WorkspaceParser.ParsedTrackerEntry> previousTrackerEntries = new ConcurrentHashMap<>();
+
 
     public WorkspaceWatcher(WorkspaceReplayAdapter adapter,
                             WebSocketEventBus eventBus,
@@ -79,6 +87,10 @@ public class WorkspaceWatcher implements Closeable {
 
         // Mark already-processed files so catch-up doesn't re-dispatch
         markExistingFiles(workspacePath.resolve("responses"), startFromRound);
+
+        for (var te : WorkspaceParser.parseTracker(workspacePath)) {
+            previousTrackerEntries.put(te.issueId(), te);
+        }
 
         this.directoryWatcher = DirectoryWatcher.builder()
                 .path(workspacePath)
@@ -227,6 +239,11 @@ public class WorkspaceWatcher implements Closeable {
             int count = 0;
             count += adapter.dispatchResponses(channelId, impSender, round, raiseMessageIds);
 
+            String revSender = session.instanceIdFor(AgentType.REV);
+            var currentTracker = WorkspaceParser.parseTracker(workspacePath);
+            count += dispatchTrackerDiffs(channelId, revSender, currentTracker, roundNum);
+            count += dispatchRoundSnapshotIfAvailable(channelId, revSender, currentTracker, roundNum);
+
             if (count > 0) {pushNewEntries();}
 
             lastReplayedRound = roundNum;
@@ -235,6 +252,71 @@ public class WorkspaceWatcher implements Closeable {
         } catch (Exception e) {
             LOG.warning("Failed to process " + stem + ": " + e.getMessage());
         }}
+
+
+    private int dispatchTrackerDiffs(UUID channelId, String sender,
+                                     List<WorkspaceParser.ParsedTrackerEntry> currentTracker,
+                                     int roundNum) {
+        int count = 0;
+        for (var te : currentTracker) {
+            var    prev       = previousTrackerEntries.get(te.issueId());
+            String prevStatus = prev != null ? prev.status() : null;
+            String curStatus  = te.status();
+
+            if ("DEFERRED".equals(curStatus) && !"DEFERRED".equals(prevStatus)) {
+                var meta = new LinkedHashMap<String, String>();
+                meta.put(ConversationProtocol.ENTRY_TYPE, "DEFERRED");
+                meta.put(ConversationProtocol.ROLE, "REV");
+                meta.put(ConversationProtocol.ROUND, String.valueOf(roundNum));
+                String encoded = ChannelMessageMeta.encode(
+                        DebateProtocol.META_SENTINEL, meta, "Issue deferred.");
+                Long inReplyTo = raiseMessageIds.get(te.issueId());
+                messageService.dispatch(MessageDispatch.builder()
+                                                       .channelId(channelId).sender(sender).type(MessageType.DECLINE)
+                                                       .content(encoded).correlationId(te.issueId())
+                                                       .inReplyTo(inReplyTo).actorType(ActorType.AGENT).build());
+                count++;
+            }
+
+            String prevEvidence = prev != null ? prev.evidence() : null;
+            if (te.evidence() != null && !te.evidence().equals(prevEvidence)) {
+                var meta = new LinkedHashMap<String, String>();
+                meta.put(ConversationProtocol.ENTRY_TYPE, "MEMO");
+                meta.put(ConversationProtocol.ROLE, "REV");
+                meta.put(ConversationProtocol.ROUND, String.valueOf(roundNum));
+                String encoded = ChannelMessageMeta.encode(
+                        DebateProtocol.META_SENTINEL, meta,
+                        te.issueId() + ": spec commit " + te.evidence());
+                messageService.dispatch(MessageDispatch.builder()
+                                                       .channelId(channelId).sender(sender).type(MessageType.STATUS)
+                                                       .content(encoded).actorType(ActorType.AGENT).build());
+                count++;
+            }
+
+            previousTrackerEntries.put(te.issueId(), te);
+        }
+        return count;
+    }
+
+    private int dispatchRoundSnapshotIfAvailable(UUID channelId, String sender,
+                                                 List<WorkspaceParser.ParsedTrackerEntry> currentTracker,
+                                                 int roundNum) {
+        if (projectRepoPath == null || specPath == null) {return 0;}
+
+        String commitHash = null;
+        for (var te : currentTracker) {
+            if (te.commitHash() != null) {
+                commitHash = te.commitHash();
+                break;
+            }
+        }
+        if (commitHash == null) {return 0;}
+
+        adapter.dispatchRoundSnapshot(channelId, sender, roundNum, commitHash, specPath,
+                                      String.format("Round %d", roundNum), null, "Round " + roundNum);
+        return 1;
+    }
+
 
     private boolean waitForFile(Path dir, String stem) {
         Path md = dir.resolve(stem + ".md");
