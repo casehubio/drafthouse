@@ -109,6 +109,18 @@ public class WebSocketEventBus {
         }
     }
 
+    public void pushThreadEntries(UUID channelId, List<io.casehub.drafthouse.debate.ThreadStreamEntry> entries) {
+        Set<String> connIds = topicRegistry.connections("debate:" + channelId);
+        if (connIds.isEmpty()) {return;}
+        String json = formatEvent("thread-entries", entries);
+        if (json == null) {return;}
+        for (String connId : connIds) {
+            WebSocketConnection conn = connections.get(connId);
+            if (conn != null) {sendSafe(conn, json);}
+        }
+    }
+
+
     public void pushMetadata(UUID channelId, String topic, Object payload) {
         Set<String> connIds = topicRegistry.connections("debate:" + channelId);
         if (connIds.isEmpty()) {return;}

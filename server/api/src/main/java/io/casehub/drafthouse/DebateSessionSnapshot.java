@@ -13,4 +13,10 @@ public record DebateSessionSnapshot(
         ComparisonPair comparison,
         Map<AgentType, String> participants,
         String agentId,
-        String workspacePath) {}
+        String workspacePath,
+        Map<String, SelectionThread> threads) {
+
+    public DebateSessionSnapshot {
+        if (threads == null) {threads = Map.of();}
+    }
+}

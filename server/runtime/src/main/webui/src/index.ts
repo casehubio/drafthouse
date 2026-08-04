@@ -40,6 +40,7 @@ registerPanel("context-gauge", "context-gauge");
 registerPanel("document-timeline", "document-timeline");
 registerPanel("terminal", "pages-component-terminal");
 registerPanel("brainstorm-options", "brainstorm-options");
+registerPanel("selection-threads", "selection-threads");
 
 // Parse URL params
 const params = new URLSearchParams(window.location.search);
@@ -68,6 +69,7 @@ const workbench = mode === "brainstorm" ? buildBrainstormLayout() : rows(
     <workspace-status></workspace-status>
     <span style="flex:1" id="topbar-spacer"></span>
     <button id="btn-debate" class="active" title="Toggle debate panel">💬 Debate</button>
+    <button id="btn-threads" class="active" title="Toggle threads panel">🧵 Threads</button>
     <button id="btn-review" class="active" title="Toggle review panel">📋 Review</button>
   </div>`),
 
@@ -79,8 +81,9 @@ const workbench = mode === "brainstorm" ? buildBrainstormLayout() : rows(
     ),
     split("vertical", [
       withId("debate", hostPanel("debate-feed", {})),
+      withId("threads", hostPanel("selection-threads", {})),
       withId("review", hostPanel("review-tracker", {})),
-    ], { ratio: [60, 40] }),
+    ], { ratio: [45, 25, 30] }),
   ], { ratio: [60, 40] }),
 
   // Status bar — passive status info separated from action controls (workbench convention)
@@ -173,6 +176,9 @@ function connectDebateSession(sessionId: string): void {
 
   if (debateEl) debateEl.configure({ debateSessionId: sessionId });
   if (reviewEl) reviewEl.configure({ debateSessionId: sessionId });
+
+  const threadsEl = document.querySelector("selection-threads") as any;
+  if (threadsEl) threadsEl.configure({ debateSessionId: sessionId });
 
   const timelineEl = document.querySelector("document-timeline") as any;
   if (timelineEl) timelineEl.configure({ sessionId });
@@ -403,6 +409,7 @@ document.getElementById("shortcuts-backdrop")?.addEventListener("click", () => {
 // handles, and collapses the parent split when all children are hidden.
 // See pages-runtime/src/site.ts:775-825.
 let debateVisible = true;
+let threadsVisible = true;
 let reviewVisible = true;
 
 function updatePanelVisibility(): void {
@@ -411,14 +418,22 @@ function updatePanelVisibility(): void {
     bubbles: true, detail: { panelId: "debate", visible: debateVisible },
   }));
   app.dispatchEvent(new CustomEvent("pages-dock-toggle", {
+    bubbles: true, detail: { panelId: "threads", visible: threadsVisible },
+  }));
+  app.dispatchEvent(new CustomEvent("pages-dock-toggle", {
     bubbles: true, detail: { panelId: "review", visible: reviewVisible },
   }));
   document.getElementById("btn-debate")?.classList.toggle("active", debateVisible);
+  document.getElementById("btn-threads")?.classList.toggle("active", threadsVisible);
   document.getElementById("btn-review")?.classList.toggle("active", reviewVisible);
 }
 
 document.getElementById("btn-debate")?.addEventListener("click", () => {
   debateVisible = !debateVisible;
+  updatePanelVisibility();
+});
+document.getElementById("btn-threads")?.addEventListener("click", () => {
+  threadsVisible = !threadsVisible;
   updatePanelVisibility();
 });
 document.getElementById("btn-review")?.addEventListener("click", () => {

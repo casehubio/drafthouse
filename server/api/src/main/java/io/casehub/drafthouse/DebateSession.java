@@ -28,6 +28,7 @@ public class DebateSession {
     private final String channelName;
     private final String agentId;
     private final ConcurrentHashMap<AgentType, String> participants = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, SelectionThread> threads = new ConcurrentHashMap<>();
     private final DocumentSet documentSet;
     private final ContextTracker contextTracker = new ContextTracker();
     private volatile SelectionScope currentSelection;
@@ -92,6 +93,9 @@ public class DebateSession {
             session.registerIfAbsent(entry.getKey(), entry::getValue);
         }
         session.setWorkspacePath(snapshot.workspacePath());
+        if (snapshot.threads() != null) {
+            snapshot.threads().forEach((id, thread) -> session.threads.put(id, thread));
+        }
         return session;}
 
     /**
@@ -155,6 +159,33 @@ public class DebateSession {
 
     public void setWorkspacePath(String workspacePath) {
         this.workspacePath = workspacePath;
+    }
+
+    public String startThread(SelectionScope anchor) {
+        String threadId = UUID.randomUUID().toString();
+        threads.put(threadId, new SelectionThread(threadId, anchor, ThreadStatus.OPEN));
+        return threadId;
+    }
+
+    public void resolveThread(String threadId) {
+        SelectionThread existing = threads.get(threadId);
+        if (existing == null) {throw new IllegalArgumentException("thread not found: " + threadId);}
+        if (existing.status() == ThreadStatus.RESOLVED) {
+            throw new IllegalArgumentException("thread already resolved: " + threadId);
+        }
+        threads.put(threadId, existing.withStatus(ThreadStatus.RESOLVED));
+    }
+
+    public List<SelectionThread> findThreadsNear(SelectionScope scope) {
+        return threads.values().stream()
+                      .filter(t -> t.anchor().side() == scope.side()
+                                   && t.anchor().startLine() <= scope.endLine()
+                                   && t.anchor().endLine() >= scope.startLine())
+                      .toList();
+    }
+
+    public Map<String, SelectionThread> threads() {
+        return Collections.unmodifiableMap(threads);
     }
 
 
@@ -259,5 +290,6 @@ public class DebateSession {
         }
         return new DebateSessionSnapshot(
                 channelId, debateSessionId, channelName,
-                docs, comp, Map.copyOf(participants), agentId, workspacePath);}
+                docs, comp, Map.copyOf(participants), agentId, workspacePath,
+                Map.copyOf(threads));}
 }

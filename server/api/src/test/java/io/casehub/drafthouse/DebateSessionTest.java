@@ -325,7 +325,7 @@ class DebateSessionTest {
                 List.of(new DocumentEntry("/a.md", "spec"), new DocumentEntry("/b.md", "impl")),
                 new ComparisonPair("/a.md", "/b.md"),
                 Map.of(AgentType.REV, "rev-id", AgentType.IMP, "imp-id"),
-                null, null);
+                null, null, Map.of());
 
         DebateSession session = DebateSession.fromSnapshot(snap);
         assertThat(session.channelId()).isEqualTo(CHANNEL_ID);

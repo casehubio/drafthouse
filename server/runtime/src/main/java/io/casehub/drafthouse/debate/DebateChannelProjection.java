@@ -112,6 +112,9 @@ public class DebateChannelProjection extends ConversationProjection
     public ConversationState apply(ConversationState state, MessageView message) {
         try {
             Map<String, String> meta      = ChannelMessageMeta.parseMeta(sentinel(), message.content());
+            if (meta.containsKey("threadId")) {
+                return state;
+            }
             String              entryType = meta.get(ConversationProtocol.ENTRY_TYPE);
             if ("ROUND_SNAPSHOT".equals(entryType)) {
                 return state;

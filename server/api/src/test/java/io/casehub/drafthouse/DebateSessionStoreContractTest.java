@@ -20,7 +20,7 @@ class DebateSessionStoreContractTest {
                 List.of(new DocumentEntry("/a.md", "spec")),
                 new ComparisonPair("/a.md", "/b.md"),
                 Map.of(AgentType.REV, "rev-id"),
-                null, null);
+                null, null, Map.of());
     }
 
     @Test
@@ -64,7 +64,7 @@ class DebateSessionStoreContractTest {
         var updated = new DebateSessionSnapshot(
                 snap.channelId(), snap.debateSessionId(), snap.channelName(),
                 List.of(new DocumentEntry("/a.md", "spec"), new DocumentEntry("/b.md", "impl")),
-                null, snap.participants(), snap.agentId(), null);
+                null, snap.participants(), snap.agentId(), null, Map.of());
         store.save(updated);
         var loaded = store.load(snap.channelId());
         assertThat(loaded.get().documents()).hasSize(2);

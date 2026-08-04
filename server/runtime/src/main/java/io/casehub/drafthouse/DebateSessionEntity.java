@@ -85,7 +85,7 @@ class DebateSessionEntity {
                             ? new ComparisonPair(comparisonPathA, comparisonPathB)
                             : null;
         return new DebateSessionSnapshot(channelId, debateSessionId, channelName,
-                                         docs, cp, Map.copyOf(participants), agentId, workspacePath);}
+                                         docs, cp, Map.copyOf(participants), agentId, workspacePath, Map.of());}
 
     static DebateSessionEntity fromSnapshot(DebateSessionSnapshot snap) {
         var entity = new DebateSessionEntity();

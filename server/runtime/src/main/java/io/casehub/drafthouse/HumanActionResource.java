@@ -10,9 +10,9 @@ import io.casehub.drafthouse.debate.DebateProtocol;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.ProjectionService;
 import io.casehub.qhorus.runtime.instance.InstanceService;
 import io.casehub.qhorus.runtime.message.MessageService;
+import io.casehub.qhorus.runtime.message.ProjectionService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -49,6 +49,11 @@ public class HumanActionResource {
     record OverrideRequest(String pointId, String reason) {}
     record PrioritiseRequest(String pointId, String newPriority) {}
     record BatchRequest(List<String> pointIds, String verdict) {}
+
+    record ThreadStartRequest(String content, String side, int startLine, int endLine, String selectedText) {}
+
+    record ThreadReplyRequest(String content) {}
+
 
     @POST @Path("/comment")
     @Consumes(MediaType.APPLICATION_JSON) @Produces(MediaType.APPLICATION_JSON)
@@ -281,6 +286,128 @@ public class HumanActionResource {
 
         return Response.ok("{\"status\":\"ok\"}").build();
     }
+
+    @POST
+    @Path("/thread")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response startThread(@PathParam("debateSessionId") String debateSessionId,
+                                ThreadStartRequest request) {
+        DebateSession session = resolveSession(debateSessionId);
+        if (session == null) {return notFound(debateSessionId);}
+        if (request == null || request.content() == null || request.content().isBlank()) {
+            return badRequest("content is required");
+        }
+        if (request.selectedText() == null || request.selectedText().isBlank()) {
+            return badRequest("selectedText is required");
+        }
+
+        DocumentSide docSide;
+        try {docSide = DocumentSide.valueOf(request.side());} catch (IllegalArgumentException |
+                                                                     NullPointerException e) {
+            return badRequest("invalid side: " + request.side());
+        }
+
+        SelectionScope anchor;
+        try {
+            anchor = new SelectionScope(docSide, request.startLine(), request.endLine(), request.selectedText());
+        } catch (IllegalArgumentException e) {return badRequest(e.getMessage());}
+
+        String threadId = session.startThread(anchor);
+        registry.persist(session);
+
+        String sender = DebateParticipants.ensureSender(session, AgentType.HUMAN, instanceService, registry);
+
+        Map<String, String> meta = new LinkedHashMap<>();
+        meta.put("threadId", threadId);
+        meta.put("threadAction", "START");
+        meta.put(ConversationProtocol.ROLE, "HUMAN");
+        meta.put("side", request.side());
+        meta.put("startLine", String.valueOf(request.startLine()));
+        meta.put("endLine", String.valueOf(request.endLine()));
+        meta.put("selectedText", request.selectedText());
+        String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, request.content());
+
+        messageService.dispatch(MessageDispatch.builder()
+                                               .channelId(session.channelId())
+                                               .sender(sender)
+                                               .type(MessageType.QUERY)
+                                               .content(encoded)
+                                               .correlationId(threadId)
+                                               .actorType(ActorType.HUMAN)
+                                               .build());
+
+        return Response.ok("{\"status\":\"ok\",\"threadId\":\"" + threadId + "\"}").build();
+    }
+
+    @POST
+    @Path("/thread/{threadId}/reply")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response replyToThread(@PathParam("debateSessionId") String debateSessionId,
+                                  @PathParam("threadId") String threadId,
+                                  ThreadReplyRequest request) {
+        DebateSession session = resolveSession(debateSessionId);
+        if (session == null) {return notFound(debateSessionId);}
+        if (request == null || request.content() == null || request.content().isBlank()) {
+            return badRequest("content is required");
+        }
+
+        SelectionThread thread = session.threads().get(threadId);
+        if (thread == null) {return badRequest("thread not found: " + threadId);}
+        if (thread.status() == ThreadStatus.RESOLVED) {return badRequest("thread is resolved: " + threadId);}
+
+        String sender = DebateParticipants.ensureSender(session, AgentType.HUMAN, instanceService, registry);
+
+        Map<String, String> meta = new LinkedHashMap<>();
+        meta.put("threadId", threadId);
+        meta.put("threadAction", "REPLY");
+        meta.put(ConversationProtocol.ROLE, "HUMAN");
+        String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, request.content());
+
+        messageService.dispatch(MessageDispatch.builder()
+                                               .channelId(session.channelId())
+                                               .sender(sender)
+                                               .type(MessageType.RESPONSE)
+                                               .content(encoded)
+                                               .correlationId(threadId)
+                                               .actorType(ActorType.HUMAN)
+                                               .build());
+
+        return Response.ok("{\"status\":\"ok\"}").build();
+    }
+
+    @POST
+    @Path("/thread/{threadId}/resolve")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response resolveThread(@PathParam("debateSessionId") String debateSessionId,
+                                  @PathParam("threadId") String threadId) {
+        DebateSession session = resolveSession(debateSessionId);
+        if (session == null) {return notFound(debateSessionId);}
+
+        try {session.resolveThread(threadId);} catch (IllegalArgumentException e) {return badRequest(e.getMessage());}
+        registry.persist(session);
+
+        String sender = DebateParticipants.ensureSender(session, AgentType.HUMAN, instanceService, registry);
+
+        Map<String, String> meta = new LinkedHashMap<>();
+        meta.put("threadId", threadId);
+        meta.put("threadAction", "RESOLVE");
+        meta.put(ConversationProtocol.ROLE, "HUMAN");
+        String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, "");
+
+        messageService.dispatch(MessageDispatch.builder()
+                                               .channelId(session.channelId())
+                                               .sender(sender)
+                                               .type(MessageType.DONE)
+                                               .content(encoded)
+                                               .correlationId(threadId)
+                                               .actorType(ActorType.HUMAN)
+                                               .build());
+
+        return Response.ok("{\"status\":\"ok\"}").build();
+    }
+
 
     private DebateSession resolveSession(String debateSessionId) {
         try {

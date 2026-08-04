@@ -57,7 +57,36 @@ public class DebateChannelBackend implements ChannelBackend {
 
     @Override
     public void post(ChannelRef channel, OutboundMessage message) {
-        // Push all message types to WebSocket watchers
+        Map<String, String> meta = DebateProtocol.parseMeta(message.content());
+
+        // Thread messages → thread event path
+        if (meta.containsKey("threadId")) {
+            io.casehub.drafthouse.debate.ThreadStreamEntry threadEntry =
+                    io.casehub.drafthouse.debate.ThreadStreamEntry.from(message);
+            if (threadEntry != null) {
+                eventBus.pushThreadEntries(channel.id(), java.util.List.of(threadEntry));
+                String action = meta.get("threadAction");
+                if ("START".equals(action)) {
+                    var anchorMap = threadEntry.anchor() != null
+                                    ? java.util.Map.of(
+                            "side", threadEntry.anchor().side(),
+                            "startLine", threadEntry.anchor().startLine(),
+                            "endLine", threadEntry.anchor().endLine(),
+                            "selectedText", threadEntry.anchor().selectedText())
+                                    : java.util.Map.<String, Object>of();
+                    eventBus.pushMetadata(channel.id(), "thread-created",
+                                          java.util.Map.of("threadId", meta.get("threadId"),
+                                                           "anchor", anchorMap,
+                                                           "createdBy", threadEntry.agentRole() != null ? threadEntry.agentRole() : ""));
+                } else if ("RESOLVE".equals(action)) {
+                    eventBus.pushMetadata(channel.id(), "thread-resolved",
+                                          java.util.Map.of("threadId", meta.get("threadId")));
+                }
+            }
+            return;
+        }
+
+        // Existing debate entry path
         io.casehub.drafthouse.debate.DebateStreamEntry entry =
                 io.casehub.drafthouse.debate.DebateStreamEntry.from(message);
         if (entry != null) {
@@ -65,18 +94,16 @@ public class DebateChannelBackend implements ChannelBackend {
         }
 
         // Still fire CDI event for SUB_TASK_REQUEST (agent dispatch — orthogonal)
-        Map<String, String> meta = DebateProtocol.parseMeta(message.content());
-        if (!"SUB_TASK_REQUEST".equals(meta.get("entryType"))) return;
+        if (!"SUB_TASK_REQUEST".equals(meta.get("entryType"))) {return;}
 
         DebateSession session = registry.find(channel.id()).orElse(null);
         if (session == null) {
             LOG.warning("DebateChannelBackend: SUB_TASK_REQUEST on " + channel.id()
-                    + " — no active session, dropped");
+                        + " — no active session, dropped");
             return;
         }
 
         String correlationId = message.correlationId() != null
-                ? message.correlationId() : UUID.randomUUID().toString();
-        channelAgentEvent.fireAsync(new ChannelAgentRequest(channel.id(), correlationId, message, null));
-    }
+                               ? message.correlationId() : UUID.randomUUID().toString();
+        channelAgentEvent.fireAsync(new ChannelAgentRequest(channel.id(), correlationId, message, null));}
 }

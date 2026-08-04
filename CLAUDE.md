@@ -132,10 +132,10 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 | `server/` | Multi-module Maven parent (api/ + runtime/ + claude-agent/) |
 | `server/runtime/src/main/webui/` | TypeScript webui built with Quinoa — panels, workbench, WebSocket connection |
 | `server/runtime/src/main/webui/src/index.ts` | Workbench entry point — casehub-pages layout, topbar, Electron IPC, WebSocket connection |
-| `@casehubio/blocks-ui-document-workbench` | Extracted Lit panels — document-diff, debate-feed (renamed from channel-feed), review-tracker, document-timeline, context-gauge, doc-picker, brainstorm-options, brainstorm-picker, workspace-status (consumed from blocks-ui via esbuild alias) |
-| `server/api/` | Pure Java domain model — depends on casehub-blocks (context tracking, message meta, bounded projection) and qhorus-api; includes `debate/` package, `DebateSession`, `DebateSessionSnapshot`, `DebateSessionStore` SPI, `DocumentEntry`, `ComparisonPair`, `ResolvedReviewer`, `EntryType` (RAISE, AGREE, COUNTER, DISPUTE, QUALIFY, FLAG_HUMAN, DECLINED, VERIFIED, DEFERRED, MEMO, SUB_TASK_*, RESTART_CONTEXT, ROUND_SNAPSHOT, COMMENT, HUMAN_OVERRIDE, REPRIORITISE), `AgentType` (REV, IMP, SUPERVISOR, MODERATOR, SELECTOR, HUMAN), `SnapshotSource` (sealed), `DocumentSnapshot`, `DocumentTimeline`, `BrainstormSession`, `BrainstormOption` |
+| `@casehubio/blocks-ui-document-workbench` | Extracted Lit panels — document-diff, debate-feed (renamed from channel-feed), review-tracker, document-timeline, context-gauge, doc-picker, brainstorm-options, brainstorm-picker, workspace-status, selection-threads (consumed from blocks-ui via esbuild alias) |
+| `server/api/` | Pure Java domain model — depends on casehub-blocks (context tracking, message meta, bounded projection) and qhorus-api; includes `debate/` package, `DebateSession`, `DebateSessionSnapshot`, `DebateSessionStore` SPI, `DocumentEntry`, `ComparisonPair`, `ResolvedReviewer`, `EntryType` (RAISE, AGREE, COUNTER, DISPUTE, QUALIFY, FLAG_HUMAN, DECLINED, VERIFIED, DEFERRED, MEMO, SUB_TASK_*, RESTART_CONTEXT, ROUND_SNAPSHOT, COMMENT, HUMAN_OVERRIDE, REPRIORITISE), `AgentType` (REV, IMP, SUPERVISOR, MODERATOR, SELECTOR, HUMAN), `SnapshotSource` (sealed), `DocumentSnapshot`, `DocumentTimeline`, `BrainstormSession`, `BrainstormOption`, `SelectionThread`, `ThreadStatus`, `ThreadEntry` |
 | `server/runtime/` | Quarkus 3.34.3 app — all resources, Qhorus, platform AgentProvider |
-| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Ui, DraftHouseMcpTools, DebateMcpTools, BrainstormMcpTools, BrainstormService, BrainstormResource, DraftHouseInstances, HumanActionResource, DebateParticipants, DecisionFileWriter, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, BrainstormSessionRegistry, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, WebSocketEventBus, DebateWebSocket, TerminalEndpoint, NoOpDebateSessionStore, JpaDebateSessionStore, DebateSessionEntity, DraftHouseReviewerRegistry, SimplePromptRenderer, ReviewerDescriptorSeeder, ReviewerResolver, DocumentReviewer, PlatformDebateAgentProvider, debate/ (includes WorkspaceParser, WorkspaceReplayAdapter, WorkspaceWatcher, ProgressLogParser) |
+| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Ui, DraftHouseMcpTools, DebateMcpTools, ThreadMcpTools, BrainstormMcpTools, BrainstormService, BrainstormResource, DraftHouseInstances, HumanActionResource, DebateParticipants, DecisionFileWriter, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, BrainstormSessionRegistry, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, WebSocketEventBus, DebateWebSocket, TerminalEndpoint, NoOpDebateSessionStore, JpaDebateSessionStore, DebateSessionEntity, DraftHouseReviewerRegistry, SimplePromptRenderer, ReviewerDescriptorSeeder, ReviewerResolver, DocumentReviewer, PlatformDebateAgentProvider, debate/ (includes WorkspaceParser, WorkspaceReplayAdapter, WorkspaceWatcher, ProgressLogParser, ThreadProjection, ThreadState, ThreadView, ThreadStreamEntry) |
 | `server/claude-agent/` | Optional module — ClaudeAgentSdkDebateAgentProvider (AgentProvider-backed, displaces PlatformDebateAgentProvider) |
 | `server/runtime/src/main/resources/application.properties` | Quarkus config |
 | `server/runtime/target/drafthouse-server-runner.jar` | Built uber-jar (not committed) |
@@ -159,6 +159,7 @@ Quarkus Server (drafthouse-server-runner.jar)
   ├── MCP tools (review)     ← start_review, update_selection, query_review, end_review, list_reviewers, get_reviewer_instructions
   ├── MCP tools (debate)     ← start_debate, raise_point, respond_to, flag_human, get_debate_summary, end_debate, report_context
   ├── MCP tools (documents)  ← add_document, remove_document, list_documents, set_comparison, export_debate_summary
+  ├── MCP tools (threads)    ← start_thread, reply_to_thread, resolve_thread, get_thread_summary
   ├── MCP tools (workspace)  ← load_workspace (replay completed workspaces OR watch in-progress reviews via WorkspaceWatcher)
   ├── POST /api/debate/{id}/selection  ← store selection scope on debate session
   ├── DELETE /api/debate/{id}/selection  ← clear selection scope
@@ -168,7 +169,7 @@ Quarkus Server (drafthouse-server-runner.jar)
   ├── GET /api/debate/sessions     ← active debate session list
   ├── MCP tools (brainstorm) ← start_brainstorm, present_options, update_option, set_recommendation, mark_eliminated, mark_selected, end_brainstorm
   ├── PATCH /api/brainstorm/{id}/options/{optionId}  ← browser-initiated option status change
-  ├── POST /api/debate/{id}/human/*  ← HIL actions (comment, raise, override, prioritise, batch)
+  ├── POST /api/debate/{id}/human/*  ← HIL actions (comment, raise, override, prioritise, batch, thread start/reply/resolve)
   ├── GET /api/brainstorm/sessions  ← active brainstorm session list
   └── WS  /api/terminal     ← PTY-over-WebSocket (pty4j) — terminal sessions for brainstorming mode
 
@@ -198,6 +199,9 @@ Browser UI (casehub-pages workbench + Lit panels)
   ├── <brainstorm-options>          ← interactive option cards (LitElement, Shadow DOM)
   │   ├── pages-event              ← brainstorm-options, brainstorm-converged, brainstorm-ended
   │   └── PATCH /api/brainstorm    ← browser-initiated eliminate/recommend/select
+  ├── <selection-threads>            ← thread list/detail panel (LitElement, Shadow DOM)
+  │   ├── pages-event              ← thread-entries, thread-created, thread-resolved
+  │   └── POST /api/debate/{id}/human/thread/*  ← browser-initiated thread start/reply/resolve
   ├── <brainstorm-picker>           ← topbar session switcher (LitElement, Shadow DOM, topbar)
   │   └── pages-event              ← brainstorm-sessions, brainstorm-session-created, brainstorm-ended
   └── <pages-component-terminal>   ← xterm.js terminal (from @casehubio/pages-component-terminal, brainstorm mode only)
