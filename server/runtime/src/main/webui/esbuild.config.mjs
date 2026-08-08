@@ -19,6 +19,7 @@ const options = {
   target: "es2022",
   minify: false,
   sourcemap: true,
+  nodePaths: [resolve(__dirname, "node_modules")],
   alias: {
     "@casehubio/blocks-ui-document-workbench": blocksUiPath,
   },
