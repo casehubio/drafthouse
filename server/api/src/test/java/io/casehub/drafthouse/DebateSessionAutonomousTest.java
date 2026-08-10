@@ -1,6 +1,5 @@
 package io.casehub.drafthouse;
 
-import io.casehub.blocks.conversation.orchestration.ConversationOrchestrator;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -43,5 +42,27 @@ class DebateSessionAutonomousTest {
         source.setAutonomous(true);
         var branched = DebateSession.branchFrom(source, UUID.randomUUID(), "s2", "ch-2");
         assertThat(branched.isAutonomous()).isFalse();
+    }
+
+    @Test
+    void markConverseStarted_returnsTrueOnFirstCall() {
+        var session = new DebateSession(UUID.randomUUID(), "s1", "ch-1", "agent-1");
+        assertThat(session.markConverseStarted()).isTrue();
+    }
+
+    @Test
+    void markConverseStarted_returnsFalseOnSubsequentCalls() {
+        var session = new DebateSession(UUID.randomUUID(), "s1", "ch-1", "agent-1");
+        session.markConverseStarted();
+        assertThat(session.markConverseStarted()).isFalse();
+        assertThat(session.markConverseStarted()).isFalse();
+    }
+
+    @Test
+    void branchFrom_doesNotCopyConverseStarted() {
+        var source = new DebateSession(UUID.randomUUID(), "s1", "ch-1", "agent-1");
+        source.markConverseStarted();
+        var branched = DebateSession.branchFrom(source, UUID.randomUUID(), "s2", "ch-2");
+        assertThat(branched.markConverseStarted()).isTrue();
     }
 }

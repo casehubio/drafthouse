@@ -11,6 +11,7 @@ import io.casehub.blocks.conversation.ConversationState;
 import io.casehub.blocks.conversation.orchestration.AgentParticipant;
 import io.casehub.blocks.conversation.orchestration.AllAgreedTermination;
 import io.casehub.blocks.conversation.orchestration.CompositeTermination;
+import io.casehub.blocks.conversation.orchestration.ContestedEscalation;
 import io.casehub.blocks.conversation.orchestration.ConversationOrchestrator;
 import io.casehub.blocks.conversation.orchestration.RoundRobinTurnPolicy;
 import io.casehub.blocks.summarisation.EventLevel;
@@ -422,6 +423,11 @@ public class DebateMcpTools {
             try {watcher.stop();} catch (Exception e) {
                 LOG.warning("endDebate: watcher stop failed: " + e.getMessage());
             }
+        }
+
+        if (session.orchestrator() != null) {
+            session.orchestrator().terminate();
+            session.setOrchestrator(null);
         }
 
         registry.remove(channelId);
@@ -1047,6 +1053,7 @@ public class DebateMcpTools {
 
         var termination = new CompositeTermination(List.of(
                 new AllAgreedTermination(Set.of("AGREED", "VERIFIED")),
+                new ContestedEscalation(3),
                 new MaxIterationsTermination<>(20)));
 
         var agentInvoker = new DebateAgentInvoker(debateAgentProvider, participants);

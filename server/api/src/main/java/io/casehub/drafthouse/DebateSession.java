@@ -37,6 +37,7 @@ public class DebateSession {
     private volatile String           workspacePath;
     private volatile boolean          autonomous;
     private transient volatile io.casehub.blocks.conversation.orchestration.ConversationOrchestrator orchestrator;
+    private final              java.util.concurrent.atomic.AtomicBoolean                             converseStarted = new java.util.concurrent.atomic.AtomicBoolean(false);
 
 
     public DebateSession(final UUID channelId, final String debateSessionId,
@@ -170,6 +171,10 @@ public class DebateSession {
     public io.casehub.blocks.conversation.orchestration.ConversationOrchestrator orchestrator()                     {return orchestrator;}
 
     public void setOrchestrator(io.casehub.blocks.conversation.orchestration.ConversationOrchestrator orchestrator) {this.orchestrator = orchestrator;}
+
+    public boolean markConverseStarted() {
+        return converseStarted.compareAndSet(false, true);
+    }
 
 
     public String startThread(SelectionScope anchor) {

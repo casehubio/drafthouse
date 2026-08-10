@@ -189,6 +189,8 @@ Uses the `casehub-pages-push` wire protocol (`PushMessage`). Supports subscribe/
 - `brainstorm-session-created` — new brainstorm session
 - `file-changed` — file modification notification
 - `workspace-progress` — live workspace watching progress
+- `autonomous-completed` — autonomous debate loop finished (reason, dispatchCount, durationMs)
+- `autonomous-failed` — autonomous debate loop failed (error)
 - `reconnected` — sent on WebSocket connect
 
 **Terminal WebSocket:** `WS /api/terminal?cols={cols}&rows={rows}` — PTY-over-WebSocket via pty4j (brainstorming mode only).

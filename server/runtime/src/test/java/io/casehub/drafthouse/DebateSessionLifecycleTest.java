@@ -1,18 +1,16 @@
 package io.casehub.drafthouse;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import jakarta.inject.Inject;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import io.quarkus.test.junit.QuarkusTest;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration test for the full debate lifecycle with real Qhorus on H2.
@@ -134,6 +132,25 @@ class DebateSessionLifecycleTest {
 
 
     // ── helpers ───────────────────────────────────────────────────────────────
+
+
+    @Test
+    void endDebate_terminatesRunningOrchestrator() {
+        String startResult = tools.startDebate("test-spec.md", null, true);
+        assertThat(startResult).contains("autonomous\":true");
+
+        String sessionId = extractGroup(DEBATE_ID_PATTERN, startResult);
+        activeDebateSessionId = sessionId;
+
+        UUID          channelId = UUID.fromString(sessionId);
+        DebateSession session   = registry.find(channelId).orElseThrow();
+        assertThat(session.orchestrator()).isNotNull();
+
+        String endResult = tools.endDebate(sessionId, false);
+        assertThat(endResult).contains("\"status\":\"ended\"");
+        assertThat(session.orchestrator()).isNull();
+        activeDebateSessionId = null;  // already ended
+    }
 
     private static String extractGroup(Pattern pattern, String input) {
         Matcher m = pattern.matcher(input);

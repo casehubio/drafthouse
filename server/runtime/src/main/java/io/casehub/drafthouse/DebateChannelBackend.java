@@ -93,17 +93,73 @@ public class DebateChannelBackend implements ChannelBackend {
             eventBus.pushDebateEntries(channel.id(), java.util.List.of(entry));
         }
 
-        // Still fire CDI event for SUB_TASK_REQUEST (agent dispatch — orthogonal)
-        if (!"SUB_TASK_REQUEST".equals(meta.get("entryType"))) {return;}
-
-        DebateSession session = registry.find(channel.id()).orElse(null);
-        if (session == null) {
-            LOG.warning("DebateChannelBackend: SUB_TASK_REQUEST on " + channel.id()
-                        + " — no active session, dropped");
+        // SUB_TASK_REQUEST dispatch
+        if ("SUB_TASK_REQUEST".equals(meta.get("entryType"))) {
+            DebateSession session = registry.find(channel.id()).orElse(null);
+            if (session != null) {
+                String correlationId = message.correlationId() != null
+                                       ? message.correlationId() : UUID.randomUUID().toString();
+                channelAgentEvent.fireAsync(new ChannelAgentRequest(
+                        channel.id(), correlationId, message, null));
+            } else {
+                LOG.warning("DebateChannelBackend: SUB_TASK_REQUEST on " + channel.id()
+                            + " — no active session, dropped");
+            }
             return;
         }
 
-        String correlationId = message.correlationId() != null
-                               ? message.correlationId() : UUID.randomUUID().toString();
-        channelAgentEvent.fireAsync(new ChannelAgentRequest(channel.id(), correlationId, message, null));}
+        // Autonomous trigger — check on every non-SUB_TASK, non-thread message
+        DebateSession session = registry.find(channel.id()).orElse(null);
+        if (session == null || !session.isAutonomous()) {return;}
+
+        // FLAG_HUMAN from external source → terminate running orchestrator
+        if ("FLAG_HUMAN".equals(meta.get("entryType"))
+            && session.orchestrator() != null) {
+            session.orchestrator().terminate();
+            return;
+        }
+
+        // First qualifying message → start converse() on virtual thread
+        if (session.orchestrator() != null && session.markConverseStarted()) {
+            io.casehub.qhorus.api.message.MessageView triggeringMessage = new io.casehub.qhorus.api.message.MessageView(
+                    null, channel.id(), message.sender(), message.type(),
+                    message.content(), message.correlationId(), message.inReplyTo(),
+                    message.target(), message.topic(), message.artefactRefs(),
+                    message.senderActorType(), java.time.Instant.now(), null, 0);
+
+            Thread.startVirtualThread(() -> {
+                try {
+                    var outcome = session.orchestrator()
+                                         .converse(triggeringMessage)
+                                         .await().indefinitely();
+                    handleCompletion(channel.id(), session, outcome);
+                } catch (Exception e) {
+                    LOG.warning("Autonomous debate failed on " + channel.id() + ": " + e.getMessage());
+                    handleFailure(channel.id(), session, e);
+                }
+            });
+        }
+    }
+
+    private void handleCompletion(UUID channelId, DebateSession session,
+                                  io.casehub.blocks.conversation.orchestration.ConversationOutcome outcome) {
+        String reason = switch (outcome.terminationDecision()) {
+            case io.casehub.blocks.agentic.termination.TerminationDecision.Complete c -> c.result() != null ? c.result().toString() : "completed";
+            case io.casehub.blocks.agentic.termination.TerminationDecision.Escalate e -> "escalated: " + e.reason();
+            case io.casehub.blocks.agentic.termination.TerminationDecision.Failed f -> "failed: " + f.reason();
+            default -> "unknown";
+        };
+        eventBus.pushMetadata(channelId, "autonomous-completed",
+                              java.util.Map.of("reason", reason,
+                                               "dispatchCount", outcome.dispatchCount(),
+                                               "durationMs", outcome.elapsed().toMillis()));
+        session.setOrchestrator(null);
+    }
+
+    private void handleFailure(UUID channelId, DebateSession session, Exception e) {
+        eventBus.pushMetadata(channelId, "autonomous-failed",
+                              java.util.Map.of("error", e.getMessage() != null ? e.getMessage() : e.getClass().getName()));
+        session.setOrchestrator(null);
+    }
+
 }

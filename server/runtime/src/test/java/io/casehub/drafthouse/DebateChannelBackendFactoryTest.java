@@ -1,12 +1,6 @@
 package io.casehub.drafthouse;
 
 import io.casehub.blocks.channel.ChannelAgentRequest;
-import static org.mockito.Mockito.*;
-
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-
 import io.casehub.drafthouse.debate.DebateProtocol;
 import io.casehub.qhorus.api.gateway.ChannelInitialisedEvent;
 import io.casehub.qhorus.api.gateway.ChannelRef;
@@ -18,7 +12,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class DebateChannelBackendFactoryTest {
 
@@ -116,7 +124,6 @@ class DebateChannelBackendFactoryTest {
         debateBackend.post(channelRef, message);
 
         verifyNoInteractions(channelAgentEvent);
-        verifyNoInteractions(debateRegistry);
     }
 
     @Test
@@ -172,5 +179,126 @@ class DebateChannelBackendFactoryTest {
         return new OutboundMessage(
                 UUID.randomUUID(), "drafthouse-orchestrator", MessageType.STATUS,
                 content, correlationId != null ? correlationId.toString() : null, null, io.casehub.platform.api.identity.ActorType.AGENT, java.util.List.of(), null);
+    }
+
+    @Test
+    void autonomousSession_firstMessage_triggersConverseOnVirtualThread() throws Exception {
+        UUID       channelId  = UUID.randomUUID();
+        ChannelRef channelRef = new ChannelRef(channelId, "drafthouse/debate/d-" + channelId);
+
+        DebateSession session = new DebateSession(
+                channelId, channelId.toString(), channelRef.name(), null);
+        session.setAutonomous(true);
+
+        var orchestrator = mock(io.casehub.blocks.conversation.orchestration.ConversationOrchestrator.class);
+        var outcome = new io.casehub.blocks.conversation.orchestration.ConversationOutcome(
+                null, new io.casehub.blocks.agentic.termination.TerminationDecision.Complete("All agreed"),
+                java.util.List.of(), 4, java.time.Duration.ofSeconds(10));
+        when(orchestrator.converse(any())).thenReturn(
+                io.smallrye.mutiny.Uni.createFrom().item(outcome));
+        session.setOrchestrator(orchestrator);
+
+        when(debateRegistry.find(channelId)).thenReturn(Optional.of(session));
+
+        OutboundMessage message = new OutboundMessage(
+                UUID.randomUUID(), "rev-agent", MessageType.QUERY,
+                DebateProtocol.META_SENTINEL + "entryType=RAISE|role=REV|round=1|priority=P1\n\nTest point",
+                UUID.randomUUID().toString(), null,
+                io.casehub.platform.api.identity.ActorType.AGENT, java.util.List.of(), null);
+
+        debateBackend.post(channelRef, message);
+
+        Thread.sleep(500);
+
+        verify(orchestrator).converse(any(io.casehub.qhorus.api.message.MessageView.class));
+    }
+
+    @Test
+    void autonomousSession_secondMessage_doesNotRetrigger() throws Exception {
+        UUID       channelId  = UUID.randomUUID();
+        ChannelRef channelRef = new ChannelRef(channelId, "drafthouse/debate/d-" + channelId);
+
+        DebateSession session = new DebateSession(
+                channelId, channelId.toString(), channelRef.name(), null);
+        session.setAutonomous(true);
+
+        var                                 orchestrator = mock(io.casehub.blocks.conversation.orchestration.ConversationOrchestrator.class);
+        java.util.concurrent.CountDownLatch latch        = new java.util.concurrent.CountDownLatch(1);
+        when(orchestrator.converse(any())).thenReturn(
+                io.smallrye.mutiny.Uni.createFrom().item(() -> {
+                    try {latch.await();} catch (InterruptedException e) {Thread.currentThread().interrupt();}
+                    return new io.casehub.blocks.conversation.orchestration.ConversationOutcome(
+                            null, new io.casehub.blocks.agentic.termination.TerminationDecision.Complete("done"),
+                            java.util.List.of(), 2, java.time.Duration.ofSeconds(5));
+                }));
+        session.setOrchestrator(orchestrator);
+
+        when(debateRegistry.find(channelId)).thenReturn(Optional.of(session));
+
+        OutboundMessage msg1 = new OutboundMessage(
+                UUID.randomUUID(), "rev-agent", MessageType.QUERY,
+                DebateProtocol.META_SENTINEL + "entryType=RAISE|role=REV|round=1|priority=P1\n\nFirst",
+                UUID.randomUUID().toString(), null,
+                io.casehub.platform.api.identity.ActorType.AGENT, java.util.List.of(), null);
+        OutboundMessage msg2 = new OutboundMessage(
+                UUID.randomUUID(), "imp-agent", MessageType.RESPONSE,
+                DebateProtocol.META_SENTINEL + "entryType=COUNTER|role=IMP|round=1\n\nSecond",
+                UUID.randomUUID().toString(), null,
+                io.casehub.platform.api.identity.ActorType.AGENT, java.util.List.of(), null);
+
+        debateBackend.post(channelRef, msg1);
+        debateBackend.post(channelRef, msg2);
+
+        latch.countDown();
+        Thread.sleep(500);
+
+        verify(orchestrator, times(1)).converse(any());
+    }
+
+    @Test
+    void nonAutonomousSession_doesNotTriggerConverse() {
+        UUID       channelId  = UUID.randomUUID();
+        ChannelRef channelRef = new ChannelRef(channelId, "drafthouse/debate/d-" + channelId);
+
+        DebateSession session = new DebateSession(
+                channelId, channelId.toString(), channelRef.name(), null);
+
+        when(debateRegistry.find(channelId)).thenReturn(Optional.of(session));
+
+        OutboundMessage message = new OutboundMessage(
+                UUID.randomUUID(), "rev-agent", MessageType.QUERY,
+                DebateProtocol.META_SENTINEL + "entryType=RAISE|role=REV|round=1|priority=P1\n\nTest",
+                UUID.randomUUID().toString(), null,
+                io.casehub.platform.api.identity.ActorType.AGENT, java.util.List.of(), null);
+
+        debateBackend.post(channelRef, message);
+
+        assertThat(session.orchestrator()).isNull();
+    }
+
+    @Test
+    void autonomousSession_flagHuman_terminatesOrchestrator() {
+        UUID       channelId  = UUID.randomUUID();
+        ChannelRef channelRef = new ChannelRef(channelId, "drafthouse/debate/d-" + channelId);
+
+        DebateSession session = new DebateSession(
+                channelId, channelId.toString(), channelRef.name(), null);
+        session.setAutonomous(true);
+        session.markConverseStarted();
+
+        var orchestrator = mock(io.casehub.blocks.conversation.orchestration.ConversationOrchestrator.class);
+        session.setOrchestrator(orchestrator);
+
+        when(debateRegistry.find(channelId)).thenReturn(Optional.of(session));
+
+        OutboundMessage flagMsg = new OutboundMessage(
+                UUID.randomUUID(), "human-user", MessageType.HANDOFF,
+                DebateProtocol.META_SENTINEL + "entryType=FLAG_HUMAN|role=REV|round=2\n\nNeeds human review",
+                UUID.randomUUID().toString(), null,
+                io.casehub.platform.api.identity.ActorType.HUMAN, java.util.List.of(), null);
+
+        debateBackend.post(channelRef, flagMsg);
+
+        verify(orchestrator).terminate();
     }
 }
