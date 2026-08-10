@@ -47,6 +47,14 @@
       <version>${casehub.platform.version}</version>
     </dependency>
 
+    <!-- Work Progress API — satisfies blocks provided-scope dependency on progress types -->
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-work-progress-api</artifactId>
+      <version>${project.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
     <!-- Quinoa — npm build integration at compile time -->
     <dependency>
       <groupId>io.quarkiverse.quinoa</groupId>

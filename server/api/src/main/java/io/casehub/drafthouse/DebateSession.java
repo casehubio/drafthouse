@@ -35,6 +35,8 @@ public class DebateSession {
     private volatile Map<Integer, String> snapshotContent = Map.of();
     private volatile DocumentTimeline timeline;
     private volatile String           workspacePath;
+    private volatile boolean          autonomous;
+    private transient volatile io.casehub.blocks.conversation.orchestration.ConversationOrchestrator orchestrator;
 
 
     public DebateSession(final UUID channelId, final String debateSessionId,
@@ -160,6 +162,15 @@ public class DebateSession {
     public void setWorkspacePath(String workspacePath) {
         this.workspacePath = workspacePath;
     }
+
+    public boolean isAutonomous()                                                                                   {return autonomous;}
+
+    public void setAutonomous(boolean autonomous)                                                                   {this.autonomous = autonomous;}
+
+    public io.casehub.blocks.conversation.orchestration.ConversationOrchestrator orchestrator()                     {return orchestrator;}
+
+    public void setOrchestrator(io.casehub.blocks.conversation.orchestration.ConversationOrchestrator orchestrator) {this.orchestrator = orchestrator;}
+
 
     public String startThread(SelectionScope anchor) {
         String threadId = UUID.randomUUID().toString();

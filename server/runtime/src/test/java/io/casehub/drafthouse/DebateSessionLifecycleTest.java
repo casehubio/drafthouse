@@ -2,6 +2,7 @@ package io.casehub.drafthouse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,7 +46,7 @@ class DebateSessionLifecycleTest {
 
     @Test
     void raiseAndAgree_summaryShowsAgreedPoint() {
-        String startResult = tools.startDebate("test-spec.md", null);
+        String startResult = tools.startDebate("test-spec.md", null, null);
         String sessionId = extractGroup(DEBATE_ID_PATTERN, startResult);
         assertThat(sessionId).isNotBlank();
         activeDebateSessionId = sessionId;
@@ -68,7 +69,7 @@ class DebateSessionLifecycleTest {
     @Test
     void supervisorRaise_foldsCorrectly_appearsInSummary() {
         // Exercises the projection fold path for a new AgentType (SUPERVISOR) end-to-end.
-        String startResult = tools.startDebate("test-spec.md", null);
+        String startResult = tools.startDebate("test-spec.md", null, null);
         String sessionId = extractGroup(DEBATE_ID_PATTERN, startResult);
         activeDebateSessionId = sessionId;
 
@@ -83,7 +84,7 @@ class DebateSessionLifecycleTest {
 
     @Test
     void raiseAndDispute_summaryShowsDisputedPoint_noStrikethrough() {
-        String startResult = tools.startDebate("test-spec.md", null);
+        String startResult = tools.startDebate("test-spec.md", null, null);
         String sessionId = extractGroup(DEBATE_ID_PATTERN, startResult);
         activeDebateSessionId = sessionId;
 
@@ -99,6 +100,38 @@ class DebateSessionLifecycleTest {
         assertThat(summary).doesNotContain("~~");    // DISPUTED is non-terminal — no strikethrough
         assertThat(summary).contains("dispute");
     }
+
+    @Inject
+    DebateSessionRegistry registry;
+
+    @Test
+    void startDebate_autonomous_setsOrchestratorOnSession() {
+        String startResult = tools.startDebate("test-spec.md", null, true);
+        String sessionId   = extractGroup(DEBATE_ID_PATTERN, startResult);
+        assertThat(sessionId).isNotBlank();
+        activeDebateSessionId = sessionId;
+
+        UUID          channelId = UUID.fromString(sessionId);
+        DebateSession session   = registry.find(channelId).orElse(null);
+        assertThat(session).isNotNull();
+        assertThat(session.isAutonomous()).isTrue();
+        assertThat(session.orchestrator()).isNotNull();
+    }
+
+    @Test
+    void startDebate_nonAutonomous_noOrchestrator() {
+        String startResult = tools.startDebate("test-spec.md", null, null);
+        String sessionId   = extractGroup(DEBATE_ID_PATTERN, startResult);
+        assertThat(sessionId).isNotBlank();
+        activeDebateSessionId = sessionId;
+
+        UUID          channelId = UUID.fromString(sessionId);
+        DebateSession session   = registry.find(channelId).orElse(null);
+        assertThat(session).isNotNull();
+        assertThat(session.isAutonomous()).isFalse();
+        assertThat(session.orchestrator()).isNull();
+    }
+
 
     // ── helpers ───────────────────────────────────────────────────────────────
 

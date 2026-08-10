@@ -153,6 +153,16 @@ Handlers invoke `DebateAgentProvider.analyse(AgentTask)` and post the result as 
 | `PlatformDebateAgentProvider` | `@DefaultBean` — implements `DebateAgentProvider` via platform `AgentProvider` SPI. Blocking streaming invocation. |
 | `ClaudeAgentSdkDebateAgentProvider` (claude-agent module) | Optional — displaces `PlatformDebateAgentProvider` when the claude-agent module is on the classpath. Pending `casehubio/platform#55`. |
 
+#### Autonomous Orchestration
+
+Implements blocks' `ConversationOrchestrator` SPIs for server-driven autonomous debates (when `start_debate(autonomous=true)`):
+
+| Class | Implements | Role |
+|-------|-----------|------|
+| `DebateAgentInvoker` | `AgentInvoker<String>` | Wraps `DebateAgentProvider` — looks up per-agent system prompts, delegates to `analyse(AgentTask)` |
+| `DebatePromptAssembler` | `PromptAssembler` | Assembles document content, selection scope, and conversation history (system prompt excluded — handled by invoker) |
+| `DebateResponseBuilder` | `ResponseMessageBuilder` | Encodes LLM responses as `DHMETA:`-prefixed debate entries with inferred entry type and round |
+
 #### Debate Projection and Protocol
 
 | Class | Package | Role |

@@ -79,7 +79,7 @@ DraftHouse exposes MCP tools in four groups. All tools return JSON strings. Erro
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
-| `start_debate` | `specPath`, `agentId` | Start an adversarial debate session on a spec file. Registers REV and IMP agents. Returns `debateSessionId`, channel, reviewer info. |
+| `start_debate` | `specPath`, `agentId`, `autonomous` | Start an adversarial debate session on a spec file. Registers REV and IMP agents. Set `autonomous=true` for server-driven debate where agents respond automatically via ConversationOrchestrator. Returns `debateSessionId`, channel, reviewer info. |
 | `raise_point` | `debateSessionId`, `agentRole`, `round`, `content`, `priority`, `scope`, `location` | Raise a new debate point. Priority: P1/P2/P3. Scope: ISOLATED/SYSTEMIC. Returns `pointId`. |
 | `respond_to` | `debateSessionId`, `agentRole`, `round`, `pointId`, `entryType`, `content` | Respond to a point. Entry type: agree, dispute, qualify, counter, declined. |
 | `flag_human` | `debateSessionId`, `agentRole`, `round`, `pointId`, `reason` | Escalate a point for human review. |

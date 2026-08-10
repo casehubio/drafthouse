@@ -1,10 +1,23 @@
 package io.casehub.drafthouse;
 
 import io.casehub.api.model.TaskStatus;
+import io.casehub.blocks.agentic.AgentRef;
+import io.casehub.blocks.agentic.AgentResult;
+import io.casehub.blocks.agentic.termination.MaxIterationsTermination;
 import io.casehub.blocks.channel.ChannelMessageMeta;
 import io.casehub.blocks.channel.ContextSnapshot;
 import io.casehub.blocks.conversation.ConversationProtocol;
 import io.casehub.blocks.conversation.ConversationState;
+import io.casehub.blocks.conversation.orchestration.AgentParticipant;
+import io.casehub.blocks.conversation.orchestration.AllAgreedTermination;
+import io.casehub.blocks.conversation.orchestration.CompositeTermination;
+import io.casehub.blocks.conversation.orchestration.ConversationOrchestrator;
+import io.casehub.blocks.conversation.orchestration.RoundRobinTurnPolicy;
+import io.casehub.blocks.summarisation.EventLevel;
+import io.casehub.blocks.summarisation.observation.ObservationRenderer;
+import io.casehub.blocks.summarisation.observation.ObservationResult;
+import io.casehub.blocks.summarisation.observation.PartitionedObservationService;
+import io.casehub.blocks.summarisation.observation.VisibilityPolicy;
 import io.casehub.drafthouse.debate.AgentType;
 import io.casehub.drafthouse.debate.DebateChannelProjection;
 import io.casehub.drafthouse.debate.DebateProtocol;
@@ -30,10 +43,15 @@ import jakarta.inject.Inject;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -75,6 +93,9 @@ public class DebateMcpTools {
                   ReviewerResolver                                                                              resolver;
     @Inject
                   WebSocketEventBus                                                                             eventBus;
+    @Inject
+    io.casehub.drafthouse.debate.DebateAgentProvider debateAgentProvider;
+
 
     /**
      * Parses an agentRole string, returning null for unknown values.
@@ -122,12 +143,17 @@ public class DebateMcpTools {
     }
 
     @Tool(name = "start_debate",
-          description = "Start a debate session. Any agent role may participate: REV | IMP | SUPERVISOR | MODERATOR | SELECTOR. Returns JSON with debateSessionId (use for all subsequent calls), channel name, specPath, and reviewer.")
+          description = "Start a debate session. Any agent role may participate: REV | IMP | SUPERVISOR | MODERATOR | SELECTOR. "
+                        + "Set autonomous=true for server-driven debate where agents respond automatically. "
+                        + "Returns JSON with debateSessionId (use for all subsequent calls), channel name, specPath, and reviewer.")
     public String startDebate(
             @ToolArg(description = "Absolute path to the spec file being debated") String specPath,
             @ToolArg(description = "Eidos agent ID for the reviewer (e.g. 'drafthouse-structural-reviewer'). "
                                    + "Omit for default reviewer. Use list_reviewers to see available agents.")
-            String agentId) {
+            String agentId,
+            @ToolArg(description = "Set to true for server-driven autonomous debate. "
+                                   + "Agents respond automatically without MCP tool calls. Default: false.")
+            Boolean autonomous) {
 
         String debateSlug  = "d-" + UUID.randomUUID();
         String channelName = "drafthouse/debate/" + debateSlug;
@@ -156,21 +182,25 @@ public class DebateMcpTools {
             eventBus.broadcast("session-created", new DebateEventResource.SessionInfo(
                     session.debateSessionId(), session.channelName(), specPath, session.agentId()));
 
-            // Register REV and IMP eagerly; all other roles lazy-register on first use via sender()
             sender(session, AgentType.REV);
             sender(session, AgentType.IMP);
 
             channelGateway.initChannel(channel.id(), new ChannelRef(channel.id(), resolvedName));
 
             try {
-                long specSize = Files.size(Path.of(specPath));
+                long specSize = java.nio.file.Files.size(java.nio.file.Path.of(specPath));
                 session.contextTracker().addInitialContribution(specSize);
             } catch (Exception e) {
                 LOG.fine("Could not size spec file for context tracking: " + e.getMessage());
             }
 
+            if (Boolean.TRUE.equals(autonomous)) {
+                wireAutonomousOrchestrator(session, reviewer);
+            }
+
             return "{\"debateSessionId\":\"" + debateSessionId + "\",\"channel\":\"" + resolvedName
                    + "\",\"specPath\":" + DraftHouseMcpTools.jsonString(specPath)
+                   + ",\"autonomous\":" + Boolean.TRUE.equals(autonomous)
                    + ",\"reviewer\":{\"agentId\":" + DraftHouseMcpTools.jsonString(reviewer.agentId())
                    + ",\"name\":" + DraftHouseMcpTools.jsonString(reviewer.name())
                    + ",\"instructions\":" + DraftHouseMcpTools.jsonString(reviewer.instructions()) + "}}";
@@ -194,6 +224,13 @@ public class DebateMcpTools {
             }
             return "error: " + e.getMessage();
         }
+    }
+
+    /**
+     * Backwards-compatible overload for tests.
+     */
+    public String startDebate(String specPath, String agentId) {
+        return startDebate(specPath, agentId, null);
     }
 
     @Tool(name = "raise_point",
@@ -961,4 +998,83 @@ public class DebateMcpTools {
      * The registration is idempotent — InstanceService.register() is an upsert.
      */
     private String sender(final DebateSession session, final AgentType role) {return DebateParticipants.ensureSender(session, role, instanceService, registry);}
+
+    private void wireAutonomousOrchestrator(DebateSession session, ResolvedReviewer reviewer) {
+        var revRef = AgentRef.external(
+                session.instanceIdFor(AgentType.REV),
+                ignored -> CompletableFuture.completedFuture(AgentResult.success(null, "")));
+        var impRef = AgentRef.external(
+                session.instanceIdFor(AgentType.IMP),
+                ignored -> CompletableFuture.completedFuture(AgentResult.success(null, "")));
+
+        String impInstructions = "You are the implementer. Defend the implementation, "
+                                 + "acknowledge valid concerns, and propose concrete fixes.";
+        var participants = List.of(
+                new AgentParticipant(revRef, "REV", reviewer.instructions()),
+                new AgentParticipant(impRef, "IMP", impInstructions));
+
+        ObservationRenderer<io.casehub.qhorus.api.message.MessageView> renderer =
+                (events, context) -> {
+                    var sb = new StringBuilder();
+                    for (var event : events) {
+                        String body = DebateProtocol.bodyContent(event.payload().content());
+                        if (body != null && !body.isEmpty()) {
+                            sb.append(body).append("\n\n");
+                        }
+                    }
+                    return CompletableFuture.completedFuture(
+                            new ObservationResult(sb.toString(), List.of(), events.size(), 0, null));
+                };
+
+        VisibilityPolicy<io.casehub.qhorus.api.message.MessageView, String> policy =
+                event -> {
+                    String senderName = event.sender();
+                    var    routing    = new HashMap<String, Set<String>>();
+                    for (var p : participants) {
+                        if (!p.agentId().equals(senderName)) {
+                            routing.put(p.agentId(), Set.of(p.agentId()));
+                        }
+                    }
+                    return routing;
+                };
+
+        var observationService = new PartitionedObservationService<>(
+                renderer, policy,
+                msg -> msg.createdAt() != null ? msg.createdAt().toEpochMilli() : System.currentTimeMillis(),
+                new EventLevel("debate", 1));
+
+        var turnPolicy = new RoundRobinTurnPolicy();
+
+        var termination = new CompositeTermination(List.of(
+                new AllAgreedTermination(Set.of("AGREED", "VERIFIED")),
+                new MaxIterationsTermination<>(20)));
+
+        var agentInvoker = new DebateAgentInvoker(debateAgentProvider, participants);
+
+        var promptAssembler = new DebatePromptAssembler(
+                () -> session,
+                path -> {
+                    try {return Files.readString(Path.of(path));} catch (Exception e) {return "";}
+                });
+
+        var responseBuilder = new DebateResponseBuilder();
+
+        Consumer<io.casehub.qhorus.api.message.MessageView> dispatcher = msg ->
+                                                                                 messageService.dispatch(MessageDispatch.builder()
+                                                                                                                        .channelId(session.channelId())
+                                                                                                                        .sender(msg.sender())
+                                                                                                                        .type(msg.type())
+                                                                                                                        .content(msg.content())
+                                                                                                                        .correlationId(msg.correlationId())
+                                                                                                                        .actorType(ActorType.AGENT)
+                                                                                                                        .build());
+
+        var orchestrator = new ConversationOrchestrator(
+                debateProjection, observationService, turnPolicy, termination,
+                agentInvoker, promptAssembler, responseBuilder, dispatcher, participants);
+
+        session.setAutonomous(true);
+        session.setOrchestrator(orchestrator);
+    }
+
 }
