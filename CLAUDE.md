@@ -36,7 +36,7 @@
 |------------|-------------|-------|
 | adr        | project     | lands in `docs/adr/` — promoted at epic close |
 | specs      | project     | lands in `docs/specs/` — promoted at epic close |
-| blog       | workspace   | staged here; published to mdproctor.github.io via publish-blog |
+| blog       | project     | lands in `docs/blog/` — promoted at work end |
 | plans      | workspace   | stay in workspace permanently |
 | design     | workspace   | epic journal stays in workspace |
 | snapshots  | workspace   | stay in workspace permanently |
@@ -140,13 +140,13 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 | `server/runtime/src/main/resources/application.properties` | Quarkus config |
 | `server/runtime/target/drafthouse-server-runner.jar` | Built uber-jar (not committed) |
 | `docs/FEATURES.md` | Feature backlog and DraftHouse MVP roadmap |
-| `docs/superpowers/specs/` | Design specs |
-| `docs/superpowers/plans/` | Implementation plans |
+| `docs/specs/` | Design specs |
+| `docs/plans/` | Implementation plans |
 | `ARC42STORIES.MD` | Primary architecture record (Arc42Stories v0.1) — §9.4 for layer entries |
 | `LAYER-LOG.md` | Source-of-truth draft feeding ARC42STORIES.MD; retained until migration verified |
 | `design/` | Branch scaffold — JOURNAL.md and .meta per epic branch |
 | `sample-a.md`, `sample-b.md` | Demo content for manual testing |
-| `wksp/blog/` | Project diary entries (workspace-routed — never commit to project repo) |
+| `docs/blog/` | Project diary entries (project-routed) |
 
 ## Architecture
 
@@ -231,7 +231,7 @@ DraftHouse uses **casehub-pages workbench** with **Lit** (LitElement) panels. Th
 
 ## Design Documents
 
-- **Research spec:** `docs/superpowers/specs/2026-05-26-document-review-tool-research.md`
+- **Research spec:** `docs/specs/2026-05-26-document-review-tool-research.md`
 - **Feature backlog:** `docs/FEATURES.md`
 
 ## Frontend Dependencies
