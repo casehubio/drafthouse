@@ -417,6 +417,32 @@ public class WorkspaceWatcher implements Closeable {
                 payload.put("type", "REVIEW_TERMINAL");
                 payload.put("finalState", t.finalState());
             }
+            case ProgressLogParser.DimensionStart ds -> {
+                payload.put("type", "DIMENSION_START");
+                payload.put("dimension", ds.dimension());
+                payload.put("degree", ds.degree());
+                payload.put("phase", ds.phase());
+            }
+            case ProgressLogParser.RoundFindings rf -> {
+                payload.put("type", "ROUND_FINDINGS");
+                payload.put("dimension", rf.dimension());
+                payload.put("round", rf.roundNumber());
+                payload.put("issueCount", rf.issueCount());
+                payload.put("byPriority", rf.byPriority());
+            }
+            case ProgressLogParser.RoundEnd re -> {
+                payload.put("type", "ROUND_END");
+                payload.put("dimension", re.dimension());
+                payload.put("round", re.roundNumber());
+                payload.put("cost", re.cost());
+            }
+            case ProgressLogParser.DimensionDone dd -> {
+                payload.put("type", "DIMENSION_DONE");
+                payload.put("dimension", dd.dimension());
+                payload.put("totalRounds", dd.totalRounds());
+                payload.put("cost", dd.cost());
+                payload.put("issues", dd.issues());
+            }
         }
         return payload;
     }

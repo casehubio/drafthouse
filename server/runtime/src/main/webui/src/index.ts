@@ -41,6 +41,7 @@ registerPanel("document-timeline", "document-timeline");
 registerPanel("terminal", "pages-component-terminal");
 registerPanel("brainstorm-options", "brainstorm-options");
 registerPanel("selection-threads", "selection-threads");
+registerPanel("review-pipeline", "review-pipeline");
 
 // Parse URL params
 const params = new URLSearchParams(window.location.search);
@@ -71,6 +72,7 @@ const workbench = mode === "brainstorm" ? buildBrainstormLayout() : rows(
     <button id="btn-debate" class="active" title="Toggle debate panel">💬 Debate</button>
     <button id="btn-threads" class="active" title="Toggle threads panel">🧵 Threads</button>
     <button id="btn-review" class="active" title="Toggle review panel">📋 Review</button>
+    <button id="btn-pipeline" title="Toggle pipeline panel">⚙ Pipeline</button>
   </div>`),
 
   // Main content — split replaces columns+dockBar (see R1-04)
@@ -83,7 +85,8 @@ const workbench = mode === "brainstorm" ? buildBrainstormLayout() : rows(
       withId("debate", hostPanel("debate-feed", {})),
       withId("threads", hostPanel("selection-threads", {})),
       withId("review", hostPanel("review-tracker", {})),
-    ], { ratio: [45, 25, 30] }),
+      withId("pipeline", hostPanel("review-pipeline", {})),
+    ], { ratio: [35, 20, 25, 20] }),
   ], { ratio: [60, 40] }),
 
   // Status bar — passive status info separated from action controls (workbench convention)
@@ -237,6 +240,10 @@ document.addEventListener("pages-event", ((e: CustomEvent) => {
   }
   if (topic === "session-created" && !currentSessionId) {
     connectDebateSession(payload.debateSessionId);
+  }
+  if (topic === "pipeline-progress" && !pipelineVisible) {
+    pipelineVisible = true;
+    updatePanelVisibility();
   }
   if (topic === "comparison-changed") {
     const diff = document.querySelector("document-diff") as any;
@@ -411,6 +418,7 @@ document.getElementById("shortcuts-backdrop")?.addEventListener("click", () => {
 let debateVisible = true;
 let threadsVisible = true;
 let reviewVisible = true;
+let pipelineVisible = false;
 
 function updatePanelVisibility(): void {
   const app = document.getElementById("app")!;
@@ -426,6 +434,10 @@ function updatePanelVisibility(): void {
   document.getElementById("btn-debate")?.classList.toggle("active", debateVisible);
   document.getElementById("btn-threads")?.classList.toggle("active", threadsVisible);
   document.getElementById("btn-review")?.classList.toggle("active", reviewVisible);
+  app.dispatchEvent(new CustomEvent("pages-dock-toggle", {
+    bubbles: true, detail: { panelId: "pipeline", visible: pipelineVisible },
+  }));
+  document.getElementById("btn-pipeline")?.classList.toggle("active", pipelineVisible);
 }
 
 document.getElementById("btn-debate")?.addEventListener("click", () => {
@@ -440,6 +452,13 @@ document.getElementById("btn-review")?.addEventListener("click", () => {
   reviewVisible = !reviewVisible;
   updatePanelVisibility();
 });
+document.getElementById("btn-pipeline")?.addEventListener("click", () => {
+  pipelineVisible = !pipelineVisible;
+  updatePanelVisibility();
+});
+
+// Hide pipeline panel on startup (default hidden)
+updatePanelVisibility();
 
 // ── Session discovery (multi-session picker) ─────────────────────────
 

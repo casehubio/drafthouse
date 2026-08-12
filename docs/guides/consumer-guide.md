@@ -119,7 +119,15 @@ DraftHouse exposes MCP tools in four groups. All tools return JSON strings. Erro
 | `mark_selected` | `sessionId`, `optionId` | Mark final selection. Converges the session. |
 | `end_brainstorm` | `sessionId` | End the brainstorming session. |
 
-**Total: 28 MCP tools.**
+### Pipeline Tools (`PipelineMcpTools`)
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `start_pipeline` | `debateSessionId`, `dimensions` (JSON array), `ordered`, `specPath` | Create a review pipeline linking to a debate session. Starts a PipelineWatcher per dimension. |
+| `update_pipeline` | `pipelineId`, `action`, `dimension` (optional) | Update pipeline state: `checkpoint_reached`, `dimension_refused`, `dimension_accepted`, `crosscutting_started`, `pipeline_complete`. |
+| `load_decisions` | `pipelineId`, `decisionsPath` | Load brainstorming decisions from a decisions.md file into the pipeline. |
+
+**Total: 31 MCP tools.**
 
 ---
 
@@ -246,6 +254,7 @@ Topbar with controls, split main content (diff viewer + debate/review panels), s
 | Doc picker | `<doc-picker>` | Topbar document badge dropdown for A/B slot assignment |
 | Timeline | `<document-timeline>` | Document version timeline strip above diff panel |
 | Workspace status | `<workspace-status>` | Topbar live workspace watching progress indicator |
+| Review pipeline | `<review-pipeline>` | Pipeline progress dashboard — decisions, phase header, dimension cards (hidden by default, auto-shown on pipeline events) |
 
 ### Brainstorming Layout (`?mode=brainstorm`)
 
