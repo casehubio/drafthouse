@@ -21,32 +21,32 @@ class ReviewChannelProjectionTest {
         String artefactRefs = "entryId=" + correlationId + "|priority=" + p
                 + "|scope=" + scope + "|location=" + (loc != null ? loc : "");
         return new MessageView(null, null, "test", MessageType.QUERY,
-                content, correlationId, null, null, artefactRefs, List.of(), actorType, null, null, 0);
+                content, null, correlationId, null, null, artefactRefs, List.of(), actorType, null, null, 0);
     }
 
     private static MessageView respond(String correlationId, ActorType actorType, String content) {
         return new MessageView(null, null, "test", MessageType.RESPONSE,
-                content, correlationId, null, null, null, List.of(), actorType, null, null, 0);
+                content, null, correlationId, null, null, null, List.of(), actorType, null, null, 0);
     }
 
     private static MessageView done(String correlationId, ActorType actorType, String content) {
         return new MessageView(null, null, "test", MessageType.DONE,
-                content, correlationId, null, null, null, List.of(), actorType, null, null, 0);
+                content, null, correlationId, null, null, null, List.of(), actorType, null, null, 0);
     }
 
     private static MessageView decline(String correlationId, ActorType actorType, String content) {
         return new MessageView(null, null, "test", MessageType.DECLINE,
-                content, correlationId, null, null, null, List.of(), actorType, null, null, 0);
+                content, null, correlationId, null, null, null, List.of(), actorType, null, null, 0);
     }
 
     private static MessageView handoff(String correlationId, ActorType actorType, String content) {
         return new MessageView(null, null, "test", MessageType.HANDOFF,
-                content, correlationId, null, "human", null, List.of(), actorType, null, null, 0);
+                content, null, correlationId, null, "human", null, List.of(), actorType, null, null, 0);
     }
 
     private static MessageView event(ActorType actorType, String content) {
         return new MessageView(null, null, "test", MessageType.EVENT,
-                content, null, null, null, null, List.of(), actorType, null, null, 0);
+                content, null, null, null, null, null, List.of(), actorType, null, null, 0);
     }
 
     // ── tests ─────────────────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ class ReviewChannelProjectionTest {
         ConversationState s0 = proj.apply(proj.identity(),
                 query("R1", ActorType.HUMAN, Priority.HIGH, "ISOLATED", null, "Q?"));
         ConversationState s1 = proj.apply(s0, new MessageView(null, null, "test", MessageType.DECLINE,
-                null, "R1", null, null, null, List.of(), ActorType.AGENT, null, null, 0));
+                null, null, "R1", null, null, null, List.of(), ActorType.AGENT, null, null, 0));
         assertThat(s1.points().get("R1").thread().get(1).content()).isNotNull().isEqualTo("");
     }
 
@@ -143,7 +143,7 @@ class ReviewChannelProjectionTest {
         ConversationState s0 = proj.apply(proj.identity(),
                 query("R1", ActorType.HUMAN, Priority.HIGH, "ISOLATED", null, "Q?"));
         ConversationState s1 = proj.apply(s0, new MessageView(null, null, "test", MessageType.HANDOFF,
-                null, "R1", null, "human", null, List.of(), ActorType.AGENT, null, null, 0));
+                null, null, "R1", null, "human", null, List.of(), ActorType.AGENT, null, null, 0));
         assertThat(s1.points().get("R1").thread().get(1).content()).isNotNull();
         assertThat(s1.humanFlags().get(0).content()).isNotNull();
     }
@@ -176,7 +176,7 @@ class ReviewChannelProjectionTest {
         ConversationState s0 = proj.apply(proj.identity(),
                 query("R1", ActorType.HUMAN, Priority.HIGH, "ISOLATED", null, "Q?"));
         assertThatThrownBy(() -> proj.apply(s0, new MessageView(null, null, "test",
-                MessageType.RESPONSE, "A.", "R1", null, null, null, List.of(), null, null, null, 0)))
+                MessageType.RESPONSE, "A.", null, "R1", null, null, null, List.of(), null, null, null, 0)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -185,7 +185,7 @@ class ReviewChannelProjectionTest {
         ConversationState s0 = proj.apply(proj.identity(),
                 query("R1", ActorType.HUMAN, Priority.HIGH, "ISOLATED", null, "Q?"));
         assertThatThrownBy(() -> proj.apply(s0, new MessageView(null, null, "test",
-                MessageType.RESPONSE, "A.", "R1", null, null, null, List.of(), ActorType.SYSTEM, null, null, 0)))
+                MessageType.RESPONSE, "A.", null, "R1", null, null, null, List.of(), ActorType.SYSTEM, null, null, 0)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

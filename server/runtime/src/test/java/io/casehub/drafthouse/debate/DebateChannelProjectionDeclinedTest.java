@@ -24,7 +24,7 @@ class DebateChannelProjectionDeclinedTest {
     private static MessageView msg(MessageType type, String correlationId, String metaHeader, String bodyContent) {
         String encodedContent = META_SENTINEL + metaHeader + "\n\n" + bodyContent;
         return new MessageView(null, null, "test-sender", type,
-                encodedContent, correlationId, null, null, null, List.of(), ActorType.AGENT, null, null, 0);
+                encodedContent, null, correlationId, null, null, null, List.of(), ActorType.AGENT, null, null, 0);
     }
 
     private static String ratefacts(String entryType, String role, int round) {

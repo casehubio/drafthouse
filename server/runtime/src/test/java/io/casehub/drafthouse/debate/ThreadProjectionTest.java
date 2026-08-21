@@ -32,7 +32,7 @@ class ThreadProjectionTest {
         }
         String encoded = META_SENTINEL + metaHeader + "\n\n" + content;
         return new MessageView(1L, null, "sender-1", MessageType.QUERY,
-                encoded, threadId, null, null, null, List.of(),
+                encoded, null, threadId, null, null, null, List.of(),
                 ActorType.AGENT, Instant.now(), null, 0);
     }
 
@@ -40,7 +40,7 @@ class ThreadProjectionTest {
         String metaHeader = "entryType=" + entryType + "|role=" + role + "|round=1|priority=HIGH|scope=ISOLATED";
         String encoded = META_SENTINEL + metaHeader + "\n\n" + content;
         return new MessageView(2L, null, "sender-1", MessageType.QUERY,
-                encoded, "pt-1", null, null, null, List.of(),
+                encoded, null, "pt-1", null, null, null, List.of(),
                 ActorType.AGENT, Instant.now(), null, 0);
     }
 
