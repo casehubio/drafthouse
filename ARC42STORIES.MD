@@ -46,7 +46,7 @@ DraftHouse is an MCP-driven document review tool. An LLM client opens a document
 
 | Constraint | Detail |
 |---|---|
-| Java 17 | Sealed types, exhaustive switches on `EntryType` |
+| Java 21 | Sealed types, exhaustive switches on `EntryType`, Panama FFM for native interop |
 | Quarkus 3.34.3 | Platform BOM version |
 | casehub-qhorus 0.2-SNAPSHOT | Pre-release; `ChannelProjection` SPI (qhorus#230 ✅ shipped) |
 | casehub-platform-agent-api 0.2-SNAPSHOT | Platform AgentProvider SPI — provider-agnostic LLM invocation |
