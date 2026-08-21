@@ -37,7 +37,7 @@ public class DebateResponseBuilder implements ResponseMessageBuilder {
 
         return new MessageView(
                 null, null, agent.agentId(),
-                MessageType.RESPONSE, encoded, correlationId,
+                MessageType.RESPONSE, encoded, null, correlationId,
                 null, null, null,
                 List.of(), ActorType.AGENT, Instant.now(), null, 0);
     }
