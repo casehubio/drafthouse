@@ -132,3 +132,14 @@
 **Sources:** DebateWebSocket.java (existing /api/ws endpoint), WebSocketEventBus.java
 **Exploration:** quick
 **Status:** captured
+
+## D12: STT SPI location — casehub-blocks
+
+**Choice:** STT SPI interface in casehub-blocks-api, default whisper.cpp/FFM implementation in casehub-blocks-stt-whisper submodule
+**Alternatives:**
+- DraftHouse-local (server/api/) — faster to ship but extract-later tax, inconsistent with #117/#118 direction
+**Rationale:** STT is domain-agnostic — converts audio to text. Belongs at the blocks tier alongside image generation SPI. Reusable across CaseHub apps. Follows established blocks SPI pattern.
+**Trade-offs:** Cross-repo coordination with blocks release cycle. Worth it for architectural consistency.
+**Sources:** #117 issue body (casehub-blocks-stt), #118 issue (casehub-blocks-image-* pattern)
+**Exploration:** quick
+**Status:** captured
