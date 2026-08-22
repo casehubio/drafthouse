@@ -110,6 +110,7 @@
 
 ## D10: Note metadata — basics plus LLM-extracted
 
+
 **Choice:** Frontmatter includes: date, source (mic/session), duration, goal (if tagged), plus LLM-extracted title, summary, and tags
 **Alternatives:**
 - Rich metadata — adds pipeline stage markers, linked notes, refinement level. Over-specified for initial version.
@@ -117,5 +118,17 @@
 **Rationale:** Enough metadata for Obsidian discoverability (tags, summary) and provenance (date, source, duration) without overloading. LLM extraction handles the creative parts (title, summary, tags).
 **Trade-offs:** LLM-extracted metadata may need manual correction in Obsidian. Acceptable.
 **Sources:** Conversation — user selected basics + extracted
+**Exploration:** quick
+**Status:** captured
+
+## D11: Audio transport — WebSocket binary frames
+
+**Choice:** Browser sends audio frames over existing WebSocket connection (/api/ws) as binary messages; server decodes and feeds to STT
+**Alternatives:**
+- Dedicated audio WebSocket endpoint (/api/audio) — clean separation but second connection per session, more wiring
+- HTTP upload (POST /api/voice/upload) — simplest server impl but no streaming STT, poor UX for continuous mode
+**Rationale:** Reuses existing WebSocket infrastructure. Low latency for streaming STT (partial transcripts during recording). WebSocket spec natively distinguishes binary frames from text frames — existing JSON events are text, audio is binary, no protocol ambiguity.
+**Trade-offs:** Audio traffic shares connection with UI events. Acceptable — audio frames are small and UI events are infrequent.
+**Sources:** DebateWebSocket.java (existing /api/ws endpoint), WebSocketEventBus.java
 **Exploration:** quick
 **Status:** captured
