@@ -14,51 +14,53 @@
 
 ## D2: STT runtime — SPI with local default
 
-**Choice:** SPI interface in casehub-blocks-api with default local whisper.cpp/FFM implementation
+**Choice:** SPI interface in DraftHouse `server/api/` with default local whisper.cpp/FFM implementation in `server/runtime/`
 **Alternatives:**
+- casehub-blocks-api — category mismatch (STT is infrastructure, not a composed workflow), no `casehub-blocks-api` module exists, no second consumer
+- casehub-neocortex — owns ONNX-based inference, but whisper.cpp/FFM is native code, not ONNX; muddies module focus
 - Direct LangChain4j integration — simpler but locks to one provider
 - Subprocess (shell out to whisper CLI) — simpler than FFM but slower startup, harder to stream
-**Rationale:** Follows existing casehub-blocks SPI pattern. Local whisper.cpp via Java FFM/Panama gives offline capability, no API costs, Apple Silicon Metal acceleration. Alternative SPI plugins for external services (Google, Deepgram, etc.) when needed.
-**Trade-offs:** FFM integration is more complex than subprocess. Worth it for streaming partial results and avoiding process overhead.
-**Sources:** #117 issue body (whisper.cpp + Java FFM), #118 issue (casehub-blocks SPI pattern for image generation)
+**Rationale:** DraftHouse is the only consumer of STT. The platform-api-scope protocol and blocks ARC42STORIES §1 ("Not infrastructure, not a framework, not a tool library") both argue against premature promotion. Ship the SPI locally; extract when a second consumer materializes. Local whisper.cpp via Java FFM/Panama gives offline capability, no API costs, Apple Silicon Metal acceleration.
+**Trade-offs:** Extract-later tax when a second consumer appears. Routine for a well-tested SPI with one implementation.
+**Sources:** #117 issue body (whisper.cpp + Java FFM), blocks ARC42STORIES §1, platform-api-scope protocol
 **Exploration:** quick
-**Status:** captured
+**Status:** revised — moved from casehub-blocks-api to DraftHouse-local per R1-02. Blocks placement was a category mismatch (infrastructure vs composed workflow), referenced a nonexistent module (casehub-blocks-api), and had no second consumer. #118 precedent was circular (both unimplemented).
 
 ## D3: Pipeline stages
 
-**Choice:** Four-stage pipeline: raw transcript → fidelity cleanup → metadata extraction → optional goal-specific refinement
+**Choice:** Two-stage pipeline: raw transcript → combined cleanup + metadata extraction (via structured output) → optional goal-specific refinement
 **Alternatives:**
-- Two-stage (raw → cleaned only) — simpler but loses metadata enrichment
-- Single cleanup stage combining fidelity + metadata — conflates two distinct operations
-**Rationale:** Fidelity cleanup is universal and goal-agnostic (remove filler, repeats). Metadata extraction (title, summary, tags) enriches every note. Goal-specific refinement is optional and parameterized by intent (document prose gets readability; prompts get precision). Stages are progressive and non-destructive — each removes noise or adds structure without changing meaning.
-**Trade-offs:** More LLM calls per note (2-3 via AgentProvider). Acceptable — notes are infrequent compared to chat, and each call is small.
+- Four stages (raw → fidelity → metadata → goal) — artificial separation; fidelity cleanup and metadata extraction operate on the same input and can be combined in a single structured-output call
+- Single stage combining everything — loses the ability to skip goal refinement for untagged notes
+**Rationale:** Cleanup (filler removal, punctuation, grammar) and metadata extraction (title, summary, tags) are both applied to the same transcript input and can be handled by a single LLM call with structured output schema. Goal-specific refinement is fundamentally different — it transforms the cleaned text based on an intent parameter — and is optional (untagged notes skip it). Two stages gives the right separation without artificial granularity.
+**Trade-offs:** 1-2 LLM calls per note (down from 2-3). Structured output schema handles the multiple concerns cleanly.
 **Sources:** Conversation — user established fidelity ladder concept and goal-specific refinement
 **Exploration:** quick
-**Status:** captured
+**Status:** revised — collapsed from four stages to two per R1-04. Combined cleanup + metadata extraction into a single structured-output call.
 
-## D4: Pipeline LLM calls via AgentProvider
+## D4: Pipeline LLM calls via LangChain4j ChatModel
 
-**Choice:** All pipeline LLM calls go through casehub-platform AgentProvider
+**Choice:** Pipeline LLM calls use LangChain4j ChatModel with structured output, not AgentProvider
 **Alternatives:**
-- Direct LangChain4j calls — simpler wiring but bypasses platform orchestration
+- AgentProvider — spawns Claude CLI subprocesses per invocation, concurrent-session semaphore, no model selection. The existing PlatformDebateAgentProvider and DocumentReviewer already reveal the mismatch: both collect all TextDelta events into a StringBuilder, ignoring streaming entirely
 - MCP tool-driven by client LLM — more control but requires LLM client to orchestrate every note
-**Rationale:** AgentProvider is the platform's LLM abstraction, already used for debate agents. Keeps all LLM usage consistent with platform context tracking and provider configuration.
-**Trade-offs:** Dependency on platform agent infrastructure for what are relatively simple LLM calls.
-**Sources:** PlatformDebateAgentProvider.java, casehub-platform-agent-api
+**Rationale:** Pipeline stages are text-in/text-out transformations. LangChain4j ChatModel is purpose-built for this: structured output support, method-level model selection (Haiku-tier for cleanup, not the full agent model), no subprocess overhead. The platform already has `casehub-platform-agent-langchain4j` providing bidirectional ChatModel ↔ AgentProvider interop, so platform context tracking is preserved if needed. DraftHouse already uses LangChain4j for DocumentReviewer (even though it currently routes through AgentProvider).
+**Trade-offs:** Different LLM abstraction than the debate/review agents. Justified — pipeline stages and agent invocations have fundamentally different requirements.
+**Sources:** casehub-platform-agent-langchain4j (ChatModelAgentProvider + AgentProviderChatModel bridge), PlatformDebateAgentProvider.java
 **Exploration:** quick
-**Status:** captured
+**Status:** revised — changed from AgentProvider to ChatModel per R1-03. AgentProvider is the wrong abstraction level for simple text transformations.
 
-## D5: Vault location — DraftHouse-managed
+## D5: Vault location — configurable with DraftHouse default
 
-**Choice:** DraftHouse-managed vault (e.g. ~/.drafthouse/vault/) that Obsidian can open as a secondary vault
+**Choice:** Configurable vault path via `casehub.drafthouse.vault.path` (default `~/.drafthouse/vault/`); Obsidian can open as a secondary vault
 **Alternatives:**
+- Hardcoded DraftHouse-managed vault — no configuration surface but isolates from user's existing knowledge graph
 - User's existing Obsidian vault — risk of polluting existing structure
-- Configurable — more flexible but more configuration surface
-**Rationale:** DraftHouse controls vault structure (notes/, raw/ directories, frontmatter format). Obsidian opens it as a secondary vault — full compatibility without interfering with existing vaults.
-**Trade-offs:** User must add DraftHouse vault as a secondary vault in Obsidian manually. One-time setup.
-**Sources:** Conversation — user confirmed DraftHouse-managed vault
+**Rationale:** DraftHouse controls vault structure (notes/, raw/ directories, frontmatter format). A configuration property follows the established pattern (`casehub.drafthouse.storage.root` already exists for session storage). Users with an existing Obsidian vault can point DraftHouse there for graph connectivity; the default keeps it separate.
+**Trade-offs:** One additional config property. Trivial.
+**Sources:** Conversation — user confirmed DraftHouse-managed vault; DraftHouseConfig.java (existing config pattern)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised — added configurable path per R1-08. Follows existing `casehub.drafthouse.storage.root` config pattern.
 
 ## D6: Raw transcript storage — separate directory
 
@@ -96,17 +98,17 @@
 **Exploration:** quick
 **Status:** captured
 
-## D9: Input modes — all three
+## D9: Input modes — phased delivery starting with push-to-talk
 
-**Choice:** Push-to-talk, continuous with pause detection, and record-then-review
+**Choice:** Push-to-talk first; continuous with pause detection and record-then-review as subsequent enhancements
 **Alternatives:**
-- Push-to-talk only — simplest but limits use cases
-- Push-to-talk + continuous — missing long-form review workflow
-**Rationale:** Full range from quick capture (push-to-talk) to hands-free dictation (continuous) to extended sessions (record-then-review). Each mode serves a different capture context.
-**Trade-offs:** More UI work and audio processing (silence detection for continuous mode). All three are needed for a complete voice capture tool.
-**Sources:** #117 issue body (listed all three modes)
+- All three simultaneously — defers core pipeline validation behind the most complex input modes
+- Push-to-talk only (permanently) — limits use cases unnecessarily
+**Rationale:** Push-to-talk validates the entire voice-to-note pipeline (audio capture → STT → cleanup → vault storage) with the simplest possible input mode. Continuous mode requires VAD (silence threshold calibration, noise floor estimation, debounce). Record-then-review requires audio playback UI, seeking, and waveform visualization. Phasing delivery validates the core value proposition first, then adds complexity incrementally. All three modes remain in the vision — this is a sequencing decision, not a scope cut.
+**Trade-offs:** Continuous and record-then-review delayed. Users with dictation needs must wait. Acceptable — push-to-talk covers the quick-capture use case that #117 emphasizes.
+**Sources:** #117 issue body (listed all three modes), conversation
 **Exploration:** quick
-**Status:** captured
+**Status:** revised — phased delivery per R1-07. Push-to-talk first validates the core pipeline with minimal complexity.
 
 ## D10: Note metadata — basics plus LLM-extracted
 
@@ -121,25 +123,38 @@
 **Exploration:** quick
 **Status:** captured
 
-## D11: Audio transport — WebSocket binary frames
+## D11: Audio transport — HTTP POST upload
 
-**Choice:** Browser sends audio frames over existing WebSocket connection (/api/ws) as binary messages; server decodes and feeds to STT
+**Choice:** Browser records audio using MediaRecorder API; completed recording uploaded via HTTP POST to `/api/voice/upload`; server receives audio, runs STT, writes transcript to working directory
 **Alternatives:**
-- Dedicated audio WebSocket endpoint (/api/audio) — clean separation but second connection per session, more wiring
-- HTTP upload (POST /api/voice/upload) — simplest server impl but no streaming STT, poor UX for continuous mode
-**Rationale:** Reuses existing WebSocket infrastructure. Low latency for streaming STT (partial transcripts during recording). WebSocket spec natively distinguishes binary frames from text frames — existing JSON events are text, audio is binary, no protocol ambiguity.
-**Trade-offs:** Audio traffic shares connection with UI events. Acceptable — audio frames are small and UI events are infrequent.
-**Sources:** DebateWebSocket.java (existing /api/ws endpoint), WebSocketEventBus.java
+- WebSocket binary frames on existing /api/ws — requires @OnBinaryMessage handler, binary-to-session association protocol, backpressure management; significant rework of a text-only endpoint; unnecessary for push-to-talk where recording completes before processing
+- Dedicated audio WebSocket endpoint (/api/audio) — clean separation but unnecessary for batch STT (push-to-talk); revisit when continuous mode adds streaming STT requirements
+**Rationale:** Push-to-talk (D9) means the recording completes before processing begins — streaming STT is unnecessary. HTTP POST upload is the simplest server implementation: a standard JAX-RS endpoint receiving multipart form data. No WebSocket binary frame protocol needed. When continuous mode is implemented (requiring streaming STT), the transport decision can be revisited with actual streaming requirements.
+**Trade-offs:** No real-time partial transcripts during recording. Acceptable for push-to-talk — the user presses stop, then sees the result.
+**Sources:** DebateWebSocket.java (text-only @OnTextMessage, PushRequest.parse() protocol)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised — changed from WebSocket binary frames to HTTP POST upload per R1-05. Push-to-talk doesn't need streaming; HTTP upload is the simplest correct transport.
 
-## D12: STT SPI location — casehub-blocks
+## D12: STT SPI location — DraftHouse-local
 
-**Choice:** STT SPI interface in casehub-blocks-api, default whisper.cpp/FFM implementation in casehub-blocks-stt-whisper submodule
+**Choice:** STT SPI interface in DraftHouse `server/api/`, default whisper.cpp/FFM implementation in `server/runtime/`. Extract to a shared module when a second consumer appears.
 **Alternatives:**
-- DraftHouse-local (server/api/) — faster to ship but extract-later tax, inconsistent with #117/#118 direction
-**Rationale:** STT is domain-agnostic — converts audio to text. Belongs at the blocks tier alongside image generation SPI. Reusable across CaseHub apps. Follows established blocks SPI pattern.
-**Trade-offs:** Cross-repo coordination with blocks release cycle. Worth it for architectural consistency.
-**Sources:** #117 issue body (casehub-blocks-stt), #118 issue (casehub-blocks-image-* pattern)
+- casehub-blocks — category mismatch (blocks §1: "not infrastructure"), no casehub-blocks-api module, no second consumer, #118 precedent is circular
+- casehub-neocortex — ONNX-specific inference model; whisper.cpp/FFM is native, not ONNX
+**Rationale:** DraftHouse is the sole consumer. The extraction-on-demand principle avoids premature promotion to a shared module. The SPI in `server/api/` is pure Java (no framework deps), making future extraction mechanical. The implementation in `server/runtime/` follows the established api/runtime split.
+**Trade-offs:** Cross-repo coordination cost when extracting later. Routine — the SPI is well-bounded (audio bytes → text).
+**Sources:** blocks ARC42STORIES §1, platform-api-scope protocol, DraftHouse api/runtime split pattern
 **Exploration:** quick
-**Status:** captured
+**Status:** revised — moved from casehub-blocks to DraftHouse-local per R1-02. Aligned with D2 revision.
+
+## D13: Persistence integration — filesystem vault as durable store
+
+**Choice:** Voice notes persist as filesystem artifacts in the vault; the vault outlives sessions; pipeline recovery is file-based
+**Alternatives:**
+- Store notes in DraftHouseSessionStore — couples note lifecycle to session lifecycle; notes should outlive their capture session
+- Event-sourced via Qhorus — heavyweight for file-based artifacts; Qhorus events are for agent communication, not document storage
+**Rationale:** The vault (D5) is the durable store — notes/, raw/, and frontmatter files persist independently of DraftHouseSession lifecycle. SessionSnapshot stores facet metadata (active facets, vault path reference) but not note content. Pipeline stages write intermediate files to the session working directory — each stage's output file is the recovery checkpoint. In-progress recordings are ephemeral audio buffers; a crash loses the current recording but never corrupts the vault. On session restore, NotesFacet scans the working directory for incomplete pipeline artifacts and resumes from the last completed stage.
+**Trade-offs:** No transactional guarantee between STT completion and vault write — a crash between these steps loses the transcript but not the audio (which can be re-processed). Acceptable for a local-only tool.
+**Sources:** DraftHouseSessionStore.java (SessionSnapshot record), DraftHouseSession.java (workingDirectory), Facet.java (artifact-based communication)
+**Exploration:** quick (surfaced by reviewer)
+**Status:** captured — new decision added per R1-09 to make persistence integration explicit
