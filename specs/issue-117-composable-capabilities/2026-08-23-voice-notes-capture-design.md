@@ -168,6 +168,8 @@ NotesFacet also accepts input from sources other than voice:
 
 Obsidian opens this directory as a secondary vault. `raw/` can be excluded from Obsidian search/graph via `.obsidian/app.json` excludes.
 
+Note filenames use timestamp initially (`2026-08-23T091500.md`); renamed to `{date}-{slugified-title}.md` after metadata extraction produces a title.
+
 ### 6.2 Note frontmatter (Obsidian-compatible YAML)
 
 ```yaml
@@ -200,7 +202,7 @@ Fields: `date` (capture timestamp), `source` (voice | text | import), `duration`
 
 | Tool | Description |
 |------|-------------|
-| `start_recording` | Begin audio capture (mode: push-to-talk, continuous, record-review) |
+| `start_recording` | Begin audio capture (mode: push-to-talk; continuous and record-review added in Phase 2) |
 | `stop_recording` | End capture, trigger upload and STT |
 | `list_recordings` | Show recordings in current session |
 
