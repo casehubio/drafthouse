@@ -78,10 +78,13 @@ const workbench = mode === "brainstorm" ? buildBrainstormLayout() : rows(
     </span>
     <doc-picker></doc-picker>
     <workspace-status></workspace-status>
+    <voice-capture></voice-capture>
+    <pipeline-status></pipeline-status>
     <span style="flex:1" id="topbar-spacer"></span>
     <button id="btn-debate" class="active" title="Toggle debate panel">💬 Debate</button>
     <button id="btn-threads" class="active" title="Toggle threads panel">🧵 Threads</button>
     <button id="btn-review" class="active" title="Toggle review panel">📋 Review</button>
+    <button id="btn-notes" title="Toggle notes panel">📝 Notes</button>
     <button id="btn-pipeline" title="Toggle pipeline panel">⚙ Pipeline</button>
   </div>`),
 
@@ -95,8 +98,12 @@ const workbench = mode === "brainstorm" ? buildBrainstormLayout() : rows(
       withId("debate", hostPanel("debate-feed", {})),
       withId("threads", hostPanel("selection-threads", {})),
       withId("review", hostPanel("review-tracker", {})),
+      withId("notes", rows(
+        hostPanel("note-list", {}),
+        hostPanel("note-detail", {}),
+      )),
       withId("pipeline", hostPanel("review-pipeline", {})),
-    ], { ratio: [35, 20, 25, 20] }),
+    ], { ratio: [30, 15, 20, 20, 15] }),
   ], { ratio: [60, 40] }),
 
   // Status bar — passive status info separated from action controls (workbench convention)
@@ -442,6 +449,7 @@ document.getElementById("shortcuts-backdrop")?.addEventListener("click", () => {
 let debateVisible = true;
 let threadsVisible = true;
 let reviewVisible = true;
+let notesVisible = false;
 let pipelineVisible = false;
 
 function updatePanelVisibility(): void {
@@ -459,6 +467,10 @@ function updatePanelVisibility(): void {
   document.getElementById("btn-threads")?.classList.toggle("active", threadsVisible);
   document.getElementById("btn-review")?.classList.toggle("active", reviewVisible);
   app.dispatchEvent(new CustomEvent("pages-dock-toggle", {
+    bubbles: true, detail: { panelId: "notes", visible: notesVisible },
+  }));
+  document.getElementById("btn-notes")?.classList.toggle("active", notesVisible);
+  app.dispatchEvent(new CustomEvent("pages-dock-toggle", {
     bubbles: true, detail: { panelId: "pipeline", visible: pipelineVisible },
   }));
   document.getElementById("btn-pipeline")?.classList.toggle("active", pipelineVisible);
@@ -474,6 +486,10 @@ document.getElementById("btn-threads")?.addEventListener("click", () => {
 });
 document.getElementById("btn-review")?.addEventListener("click", () => {
   reviewVisible = !reviewVisible;
+  updatePanelVisibility();
+});
+document.getElementById("btn-notes")?.addEventListener("click", () => {
+  notesVisible = !notesVisible;
   updatePanelVisibility();
 });
 document.getElementById("btn-pipeline")?.addEventListener("click", () => {

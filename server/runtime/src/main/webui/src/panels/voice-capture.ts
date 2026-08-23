@@ -16,7 +16,7 @@ export class VoiceCapture extends LitElement {
       border: none; border-radius: 50%; width: 32px; height: 32px;
       cursor: pointer; font-size: 16px; transition: background 0.2s;
     }
-    button.record { background: var(--voice-idle, #666); color: white; }
+    button.record { background: var(--voice-idle, #888); color: white; border: 2px solid var(--voice-border, #aaa); }
     button.record.active { background: var(--voice-active, #e53935); animation: pulse 1.5s infinite; }
     .status { font-size: 12px; color: var(--text-secondary, #aaa); }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
