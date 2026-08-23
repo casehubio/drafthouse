@@ -6,6 +6,7 @@ import { onPagesEvent } from '@casehubio/pages-component';
 export class VoiceCapture extends LitElement {
   @state() private recording = false;
   @state() private sessionId = '';
+  @state() private statusText = '';
   private mediaRecorder: MediaRecorder | null = null;
   private chunks: Blob[] = [];
   private _cleanups: (() => void)[] = [];
@@ -61,9 +62,16 @@ export class VoiceCapture extends LitElement {
     form.append('audio', blob, 'recording.webm');
     form.append('sessionId', this.sessionId);
 
+    this.statusText = 'Uploading...';
     try {
-      await fetch('/api/voice/upload', { method: 'POST', body: form });
+      const resp = await fetch('/api/voice/upload', { method: 'POST', body: form });
+      const text = await resp.text();
+      this.statusText = text;
+      if (text.startsWith('Failed:')) {
+        console.error('Voice upload failed:', text);
+      }
     } catch (e) {
+      this.statusText = 'Upload failed';
       console.error('Voice upload failed:', e);
     }
     this.recording = false;
@@ -76,7 +84,7 @@ export class VoiceCapture extends LitElement {
               title=${this.recording ? 'Stop recording' : 'Start recording'}>
         ${this.recording ? '⏹' : '🎤'}
       </button>
-      <span class="status">${this.recording ? 'Recording...' : ''}</span>
+      <span class="status">${this.recording ? 'Recording...' : this.statusText}</span>
     `;
   }
 }
