@@ -47,9 +47,24 @@ public class SessionMcpTools {
     String activate_facet(
             @ToolArg(description = "Session ID") String sessionId,
             @ToolArg(description = "Facet name: voice, brainstorm, draft, review") String facetName) {
-        requireSession(sessionId);
-        return "Facet activation not yet wired — facet implementations are delivered in Plans 2-5. Requested: " + facetName;
-    }
+        DraftHouseSession session = requireSession(sessionId);
+        try {
+            Facet facet = switch (facetName) {
+                case "voice" -> {
+                    if (session.findFacet("notes").isEmpty()) {
+                        session.activateFacet(new io.casehub.drafthouse.voice.NotesFacet());
+                    }
+                    yield new io.casehub.drafthouse.voice.VoiceFacet();
+                }
+                case "notes" -> new io.casehub.drafthouse.voice.NotesFacet();
+                default -> throw new IllegalArgumentException("Unknown facet: " + facetName +
+                                                              ". Available: voice, notes");
+            };
+            session.activateFacet(facet);
+            return "Facet activated: " + facetName;
+        } catch (Exception e) {
+            return "Failed: " + e.getMessage();
+        }}
 
     @Tool(description = "Deactivate a facet on a session. Deregisters the facet's MCP tools.")
     String deactivate_facet(
