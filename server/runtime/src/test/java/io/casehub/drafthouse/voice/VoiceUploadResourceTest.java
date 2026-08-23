@@ -3,7 +3,6 @@ package io.casehub.drafthouse.voice;
 import io.casehub.blocks.speech.SpeechToTextService;
 import io.casehub.blocks.speech.TranscriptionOptions;
 import io.casehub.blocks.speech.TranscriptionResult;
-import io.casehub.drafthouse.DraftHouseSession;
 import io.casehub.drafthouse.DraftHouseSessionRegistry;
 import io.casehub.drafthouse.NoOpDraftHouseSessionStore;
 import io.casehub.drafthouse.WebSocketEventBus;
@@ -18,8 +17,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class VoiceUploadResourceTest {
 
@@ -107,10 +112,15 @@ class VoiceUploadResourceTest {
     }
 
     @Test
-    void uploadUnknownSessionReturnsError() {
-        InputStream audio = new ByteArrayInputStream(new byte[]{1, 2, 3});
-        String result = resource.upload("nonexistent", null, audio);
-        assertTrue(result.startsWith("Failed:"));
+    void uploadUnknownSessionAutoCreates() throws Exception {
+        when(sttService.transcribe(any(Path.class), any(TranscriptionOptions.class)))
+                .thenReturn(new TranscriptionResult("unknown session", "en", 0.9));
+
+        InputStream audio  = new ByteArrayInputStream(new byte[]{1, 2, 3});
+        String      result = resource.upload("nonexistent", null, audio);
+
+        assertFalse(result.startsWith("Failed:"), "Unknown session should auto-create: " + result);
+        assertTrue(result.contains("unknown session"));
     }
 
     @Test
@@ -123,4 +133,48 @@ class VoiceUploadResourceTest {
         assertTrue(result.startsWith("Failed:"));
         assertTrue(result.contains("voice facet"));
     }
+
+    @Test
+    void uploadBlankSessionIdAutoCreatesSession() throws Exception {
+        when(sttService.transcribe(any(Path.class), any(TranscriptionOptions.class)))
+                .thenReturn(new TranscriptionResult("auto hello", "en", 0.9));
+
+        InputStream audio  = new ByteArrayInputStream(new byte[]{1, 2, 3});
+        String      result = resource.upload("", null, audio);
+
+        assertTrue(result.contains("auto hello"), "Should transcribe successfully: " + result);
+        assertFalse(result.startsWith("Failed:"), "Should not fail: " + result);
+        verify(transcriptEvent).fireAsync(any(TranscriptReady.class));
+    }
+
+    @Test
+    void uploadNullSessionIdAutoCreatesSession() throws Exception {
+        when(sttService.transcribe(any(Path.class), any(TranscriptionOptions.class)))
+                .thenReturn(new TranscriptionResult("null session hello", "en", 0.85));
+
+        InputStream audio  = new ByteArrayInputStream(new byte[]{1, 2, 3});
+        String      result = resource.upload(null, null, audio);
+
+        assertTrue(result.contains("null session hello"), "Should transcribe: " + result);
+        assertFalse(result.startsWith("Failed:"), "Should not fail: " + result);
+    }
+
+    @Test
+    void autoCreatedSessionHasVoiceAndNotesFacets() throws Exception {
+        when(sttService.transcribe(any(Path.class), any(TranscriptionOptions.class)))
+                .thenReturn(new TranscriptionResult("facet check", "en", 0.9));
+
+        InputStream audio = new ByteArrayInputStream(new byte[]{1, 2, 3});
+        resource.upload("", null, audio);
+
+        var sessions = registry.activeSessions();
+        var autoSession = sessions.stream()
+                                  .filter(s -> s.id().startsWith("voice-"))
+                                  .findFirst();
+        assertTrue(autoSession.isPresent(), "Auto-session should exist");
+        assertTrue(autoSession.get().findFacet("voice").isPresent(), "Should have voice facet");
+        assertTrue(autoSession.get().findFacet("notes").isPresent(), "Should have notes facet");
+    }
+
+
 }

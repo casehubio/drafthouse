@@ -30,6 +30,8 @@ public class VoiceUploadResource {
 
     private static final DateTimeFormatter TS_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HHmmss").withZone(ZoneOffset.UTC);
+    private static final java.util.concurrent.atomic.AtomicLong SESSION_COUNTER = new java.util.concurrent.atomic.AtomicLong();
+
 
     @Inject DraftHouseSessionRegistry registry;
     @Inject SpeechToTextService sttService;
@@ -45,38 +47,49 @@ public class VoiceUploadResource {
             @RestForm String goalTag,
             @RestForm("audio") InputStream audioStream) {
         try {
-            var session = registry.find(sessionId).orElse(null);
+            var session = (sessionId != null && !sessionId.isBlank())
+                          ? registry.find(sessionId).orElse(null) : null;
+            String resolvedSessionId = sessionId;
+
             if (session == null) {
-                return "Failed: session not found: " + sessionId;
-            }
-            if (session.findFacet("voice").isEmpty()) {
-                return "Failed: voice facet is not active on session " + sessionId;
+                resolvedSessionId = "voice-" + TS_FMT.format(Instant.now()) + "-" + SESSION_COUNTER.incrementAndGet();
+                session           = registry.create(resolvedSessionId);
+                var dir = java.nio.file.Path.of(System.getProperty("user.home"), ".drafthouse", "sessions", resolvedSessionId);
+                Files.createDirectories(dir);
+                session.setWorkingDirectory(dir);
+                session.activateFacet(new VoiceFacet());
+                session.activateFacet(new NotesFacet());
+                LOG.info("Auto-created voice session: " + resolvedSessionId);
             }
 
-            var workDir = session.workingDirectory();
+            if (session.findFacet("voice").isEmpty()) {
+                return "Failed: voice facet is not active on session " + resolvedSessionId;
+            }
+
+            var workDir   = session.workingDirectory();
             var timestamp = TS_FMT.format(Instant.now());
 
             var audioPath = workDir.resolve("audio-" + timestamp + ".webm");
-            Files.copy(audioStream, audioPath);
+            Files.copy(audioStream, audioPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
             var result = sttService.transcribe(audioPath, TranscriptionOptions.defaults());
 
             var transcriptPath = workDir.resolve("raw-transcript-" + timestamp + ".md");
             Files.writeString(transcriptPath, result.text());
 
-            transcriptReadyEvent.fireAsync(new TranscriptReady(sessionId, transcriptPath, goalTag));
+            transcriptReadyEvent.fireAsync(new TranscriptReady(resolvedSessionId, transcriptPath, goalTag));
 
-            eventBus.pushVoiceEvent(sessionId, "voice-transcript-ready",
-                    Map.of("text", result.text(),
-                            "language", result.language(),
-                            "confidence", result.confidence(),
-                            "path", transcriptPath.toString()));
+            eventBus.pushVoiceEvent(resolvedSessionId, "voice-transcript-ready",
+                                    Map.of("text", result.text(),
+                                           "language", result.language(),
+                                           "confidence", result.confidence(),
+                                           "path", transcriptPath.toString(),
+                                           "sessionId", resolvedSessionId));
 
             return "Transcribed (" + result.language() + ", " +
-                    String.format("%.0f%%", result.confidence() * 100) + "): " + result.text();
+                   String.format("%.0f%%", result.confidence() * 100) + "): " + result.text();
         } catch (Exception e) {
             LOG.warning("Voice upload failed for session " + sessionId + ": " + e.getMessage());
             return "Failed: " + e.getMessage();
-        }
-    }
+        }}
 }
