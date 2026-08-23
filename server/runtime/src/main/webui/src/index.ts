@@ -7,6 +7,12 @@ import {
 import "@casehubio/blocks-ui-document-workbench";
 import "@casehubio/pages-component-terminal";
 
+// Voice/notes panels (local)
+import "./panels/voice-capture";
+import "./panels/note-list";
+import "./panels/note-detail";
+import "./panels/pipeline-status";
+
 // ── Electron IPC Bridge ──────────────────────────────────────────────────
 
 declare global {
@@ -42,6 +48,10 @@ registerPanel("terminal", "pages-component-terminal");
 registerPanel("brainstorm-options", "brainstorm-options");
 registerPanel("selection-threads", "selection-threads");
 registerPanel("review-pipeline", "review-pipeline");
+registerPanel("voice-capture", "voice-capture");
+registerPanel("note-list", "note-list");
+registerPanel("note-detail", "note-detail");
+registerPanel("pipeline-status", "pipeline-status");
 
 // Parse URL params
 const params = new URLSearchParams(window.location.search);
@@ -222,6 +232,20 @@ function connectBrainstormSession(sessionId: string): void {
 
   const optionsEl = document.querySelector("brainstorm-options") as any;
   if (optionsEl) optionsEl.configure({ sessionId });
+}
+
+let currentVoiceSessionId: string | null = null;
+
+function connectVoiceSession(sessionId: string): void {
+  if (currentVoiceSessionId) {
+    wsSource.unsubscribe(("voice:" + currentVoiceSessionId) as any);
+  }
+  currentVoiceSessionId = sessionId;
+  wsSource.subscribe(("voice:" + sessionId) as any,
+    { uuid: ("voice:" + sessionId) as any } as any, noOpListener, noOpError);
+
+  const voiceEl = document.querySelector("voice-capture") as any;
+  if (voiceEl) voiceEl.configure({ sessionId });
 }
 
 export function getSessionId(): string | null {
