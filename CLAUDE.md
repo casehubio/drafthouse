@@ -133,9 +133,9 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 | `server/runtime/src/main/webui/` | TypeScript webui built with Quinoa — panels, workbench, WebSocket connection |
 | `server/runtime/src/main/webui/src/index.ts` | Workbench entry point — casehub-pages layout, topbar, Electron IPC, WebSocket connection |
 | `@casehubio/blocks-ui-document-workbench` | Extracted Lit panels — document-diff, debate-feed (renamed from channel-feed), review-tracker, review-pipeline, document-timeline, context-gauge, doc-picker, brainstorm-options, brainstorm-picker, workspace-status, selection-threads (consumed from blocks-ui via esbuild alias) |
-| `server/api/` | Pure Java domain model — depends on casehub-blocks (context tracking, message meta, bounded projection) and qhorus-api; includes `debate/` package, `DebateSession`, `DebateSessionSnapshot`, `DebateSessionStore` SPI, `DocumentEntry`, `ComparisonPair`, `ResolvedReviewer`, `EntryType` (RAISE, AGREE, COUNTER, DISPUTE, QUALIFY, FLAG_HUMAN, DECLINED, VERIFIED, DEFERRED, MEMO, SUB_TASK_*, RESTART_CONTEXT, ROUND_SNAPSHOT, COMMENT, HUMAN_OVERRIDE, REPRIORITISE), `AgentType` (REV, IMP, SUPERVISOR, MODERATOR, SELECTOR, HUMAN), `SnapshotSource` (sealed), `DocumentSnapshot`, `DocumentTimeline`, `BrainstormSession`, `BrainstormOption`, `SelectionThread`, `ThreadStatus`, `ThreadEntry`, `PipelineSession`, `DimensionDescriptor`, `PipelinePhase`, `CheckpointStatus`, `DimensionStatus`, `PipelineDecision`, `PipelineFinding`, `PipelineDecisionParser` |
+| `server/api/` | Pure Java domain model — depends on casehub-blocks (context tracking, message meta, bounded projection) and qhorus-api; includes `debate/` package, `DebateSession`, `DebateSessionSnapshot`, `DebateSessionStore` SPI, `DocumentEntry`, `ComparisonPair`, `ResolvedReviewer`, `EntryType` (RAISE, AGREE, COUNTER, DISPUTE, QUALIFY, FLAG_HUMAN, DECLINED, VERIFIED, DEFERRED, MEMO, SUB_TASK_*, RESTART_CONTEXT, ROUND_SNAPSHOT, COMMENT, HUMAN_OVERRIDE, REPRIORITISE), `AgentType` (REV, IMP, SUPERVISOR, MODERATOR, SELECTOR, HUMAN), `SnapshotSource` (sealed), `DocumentSnapshot`, `DocumentTimeline`, `BrainstormSession`, `BrainstormOption`, `SelectionThread`, `ThreadStatus`, `ThreadEntry`, `PipelineSession`, `DimensionDescriptor`, `PipelinePhase`, `CheckpointStatus`, `DimensionStatus`, `PipelineDecision`, `PipelineFinding`, `PipelineDecisionParser`, `voice/TranscriptReady` (CDI event) |
 | `server/runtime/` | Quarkus 3.34.3 app — all resources, Qhorus, platform AgentProvider |
-| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Ui, DraftHouseMcpTools, DebateMcpTools, ThreadMcpTools, BrainstormMcpTools, BrainstormService, BrainstormResource, DraftHouseInstances, HumanActionResource, DebateParticipants, DecisionFileWriter, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, BrainstormSessionRegistry, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, WebSocketEventBus, DebateWebSocket, TerminalEndpoint, NoOpDebateSessionStore, JpaDebateSessionStore, DebateSessionEntity, DraftHouseReviewerRegistry, SimplePromptRenderer, ReviewerDescriptorSeeder, ReviewerResolver, DocumentReviewer, PlatformDebateAgentProvider, DebateAgentInvoker, DebatePromptAssembler, DebateResponseBuilder, PipelineMcpTools, debate/ (includes WorkspaceParser, WorkspaceReplayAdapter, WorkspaceWatcher, ProgressLogParser, PipelineWatcher, PipelineOrchestrator, PipelineSessionRegistry, ThreadProjection, ThreadState, ThreadView, ThreadStreamEntry) |
+| `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Ui, DraftHouseMcpTools, DebateMcpTools, ThreadMcpTools, BrainstormMcpTools, BrainstormService, BrainstormResource, DraftHouseInstances, HumanActionResource, DebateParticipants, DecisionFileWriter, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, BrainstormSessionRegistry, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, WebSocketEventBus, DebateWebSocket, TerminalEndpoint, NoOpDebateSessionStore, JpaDebateSessionStore, DebateSessionEntity, DraftHouseReviewerRegistry, SimplePromptRenderer, ReviewerDescriptorSeeder, ReviewerResolver, DocumentReviewer, PlatformDebateAgentProvider, DebateAgentInvoker, DebatePromptAssembler, DebateResponseBuilder, PipelineMcpTools, VoiceUploadResource, voice/ (VoiceFacet, NotesFacet), debate/ (includes WorkspaceParser, WorkspaceReplayAdapter, WorkspaceWatcher, ProgressLogParser, PipelineWatcher, PipelineOrchestrator, PipelineSessionRegistry, ThreadProjection, ThreadState, ThreadView, ThreadStreamEntry) |
 | `server/claude-agent/` | Optional module — ClaudeAgentSdkDebateAgentProvider (AgentProvider-backed, displaces PlatformDebateAgentProvider) |
 | `server/runtime/src/main/resources/application.properties` | Quarkus config |
 | `server/runtime/target/drafthouse-server-runner.jar` | Built uber-jar (not committed) |
@@ -162,6 +162,8 @@ Quarkus Server (drafthouse-server-runner.jar)
   ├── MCP tools (threads)    ← start_thread, reply_to_thread, resolve_thread, get_thread_summary
   ├── MCP tools (workspace)  ← load_workspace (replay completed workspaces OR watch in-progress reviews via WorkspaceWatcher)
   ├── MCP tools (pipeline)   ← start_pipeline, update_pipeline, load_decisions
+  ├── MCP tools (voice)      ← start_voice_capture, stop_voice_capture, list_notes, get_note
+  ├── POST /api/voice/upload ← multipart audio upload → STT → TranscriptReady CDI event
   ├── POST /api/debate/{id}/selection  ← store selection scope on debate session
   ├── DELETE /api/debate/{id}/selection  ← clear selection scope
   ├── GET /api/debate/{id}/documents  ← list working set documents + current comparison
@@ -207,6 +209,15 @@ Browser UI (casehub-pages workbench + Lit panels)
   │   └── pages-event              ← pipeline-progress, pipeline-decisions events
   ├── <brainstorm-picker>           ← topbar session switcher (LitElement, Shadow DOM, topbar)
   │   └── pages-event              ← brainstorm-sessions, brainstorm-session-created, brainstorm-ended
+  ├── <voice-capture>               ← audio recording controls (LitElement, Shadow DOM)
+  │   ├── MediaRecorder API        ← browser audio capture
+  │   └── POST /api/voice/upload   ← multipart upload on stop
+  ├── <note-list>                   ← vault note browser (LitElement, Shadow DOM)
+  │   └── pages-event              ← note-created, note-updated events
+  ├── <note-detail>                 ← single note viewer (LitElement, Shadow DOM)
+  │   └── pages-event              ← note content with YAML frontmatter
+  ├── <pipeline-status>             ← voice/notes pipeline progress (LitElement, Shadow DOM)
+  │   └── pages-event              ← transcript-ready, cleanup-complete events
   └── <pages-component-terminal>   ← xterm.js terminal (from @casehubio/pages-component-terminal, brainstorm mode only)
 ```
 
@@ -226,7 +237,7 @@ DraftHouse uses **casehub-pages workbench** with **Lit** (LitElement) panels. Th
 
 ## Quarkus Server Notes
 
-- Version: 3.34.3 (quarkus-websockets-next, casehub-qhorus 0.2-SNAPSHOT, casehub-blocks 0.2-SNAPSHOT, casehub-pages-push 0.2-SNAPSHOT, casehub-platform-agent-api 0.2-SNAPSHOT, quarkus-quinoa 2.8.3, pty4j 0.13.11, directory-watcher 0.18.0)
+- Version: 3.34.3 (quarkus-websockets-next, casehub-qhorus 0.2-SNAPSHOT, casehub-blocks 0.2-SNAPSHOT, casehub-blocks-speech-api 0.2-SNAPSHOT, casehub-pages-push 0.2-SNAPSHOT, casehub-platform-agent-api 0.2-SNAPSHOT, quarkus-quinoa 2.8.3, pty4j 0.13.11, directory-watcher 0.18.0)
 - Java package: `io.casehub.drafthouse`
 - Quinoa serves bundled TypeScript webui from `server/runtime/src/main/webui/` — bundles on every build
 - Port: 9001 (default), configurable via `quarkus.http.port`
