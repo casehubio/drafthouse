@@ -47,6 +47,18 @@
       <version>${casehub.platform.version}</version>
     </dependency>
 
+    <!-- LangChain4j — ChatModel structured output for notes cleanup pipeline -->
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j-core</artifactId>
+      <version>1.14.1</version>
+    </dependency>
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j</artifactId>
+      <version>1.14.1</version>
+    </dependency>
+
     <!-- Work Progress API — satisfies blocks provided-scope dependency on progress types -->
     <dependency>
       <groupId>io.casehub</groupId>
