@@ -17,11 +17,13 @@ Two new facets plug into the existing `DraftHouseSession` container:
 
 **VoiceFacet** — captures audio from the browser mic via MediaRecorder API, uploads completed recordings to `POST /api/voice/upload`, and invokes the STT SPI to produce a raw transcript file in the session working directory.
 
-**NotesFacet** — watches for raw transcripts, runs the cleanup pipeline (LangChain4j ChatModel with structured output), and writes the resulting note to the Obsidian-compatible vault. Also handles non-voice note creation (paste, import, typed).
+**NotesFacet** — receives raw transcripts, runs the cleanup pipeline (LangChain4j ChatModel with structured output), and writes the resulting note to the Obsidian-compatible vault. Also handles non-voice note creation (paste, import, typed).
 
-Communication between them follows the existing artifact contract: VoiceFacet declares `raw-transcript-*.md` as an output; NotesFacet declares it as an input. No direct coupling — they communicate through files in the shared working directory.
+**Facet-to-facet communication:** VoiceFacet declares `raw-transcript-*.md` as an artifact output; NotesFacet declares it as an input. These declarations are metadata (for introspection and dependency validation), not a runtime trigger. The actual trigger is a CDI event: after writing the raw transcript, `VoiceUploadResource` fires a `TranscriptReady` CDI event. NotesFacet observes this event and starts the cleanup pipeline. This preserves loose coupling — VoiceFacet doesn't reference NotesFacet directly.
 
 **Session integration:** Both facets activate within a `DraftHouseSession`. For quick capture, auto-session creation transparently handles the session lifecycle — the user just hits record. The vault (`~/.drafthouse/vault/` by default, configurable via `casehub.drafthouse.vault.path`) outlives sessions — notes persist independently.
+
+**Auto-session lifecycle:** When no active session exists, the `start_recording` MCP tool (or the `<voice-capture>` UI panel) auto-creates a lightweight session with a generated ID (`voice-{timestamp}`), assigns a working directory under `~/.drafthouse/sessions/{id}/`, and activates both VoiceFacet and NotesFacet. The auto-session remains active until explicitly ended or until a configurable idle timeout (default 30 minutes after last pipeline completion). Facet dependency: `VoiceFacet.activate()` checks for an active NotesFacet and activates it if absent — this is runtime logic in VoiceFacet, not a declarative dependency on the Facet interface.
 
 ### Component diagram
 
@@ -35,7 +37,7 @@ Browser                              Quarkus Server                        Files
                                     └──────────────────────────┘          └────────┬──────────┘
                                                                                    │ artifact
 ┌─────────────────┐                 ┌──────────────────────────┐                   │ contract
-│ <note-list>      │←──WebSocket───│ NotesFacet                │←──watches─────────┘
+│ <note-list>      │←──WebSocket───│ NotesFacet                │←──CDI event──────┘
 │ <note-detail>    │   note-created │   ↓                      │
 │ <pipeline-status>│                │ ChatModel (structured)    │          ┌─────────────────┐
 └─────────────────┘                │   cleanup + metadata      │──write──→│ Vault            │
@@ -53,7 +55,7 @@ Speech capabilities are domain-agnostic composable building blocks — they live
 
 ```java
 public interface SpeechToTextService {
-    TranscriptionResult transcribe(byte[] audioData, TranscriptionOptions options);
+    TranscriptionResult transcribe(Path audioFile, TranscriptionOptions options);
 }
 
 public record TranscriptionResult(String text, String language, double confidence) {}
@@ -64,6 +66,8 @@ public record TranscriptionOptions(
     String modelSize
 ) {}
 ```
+
+`Path` rather than `byte[]` — avoids loading entire audio files into heap (a 30-minute recording is ~30MB). The sherpa-onnx implementation reads files natively. A future streaming variant (`transcribeStreaming(InputStream, ...)`) can be added without breaking the initial contract.
 
 ### 3.2 TextToSpeechService
 
@@ -95,6 +99,10 @@ Alternative implementations pluggable via CDI for external services (Deepgram, G
 
 The SPI abstraction is critical: latency and quality vary significantly across models and services. Implementations must be swappable without touching consumer code.
 
+**Blocks module structure:** casehub-blocks is currently a single Maven module. Adding speech SPIs requires restructuring into a multi-module reactor: `blocks-speech-api/` (pure Java SPI interfaces) and `blocks-speech-sherpa/` (FFM implementation with native library dependency). This restructuring must be coordinated with the blocks repo — a separate issue tracks it.
+
+**Model management:** Sherpa-onnx models are stored under a configurable path (`casehub.drafthouse.speech.model-path`, default `~/.drafthouse/models/`). Models are downloaded on first use — the implementation checks for the model file and fetches it if absent. STT model selection is configurable (`casehub.drafthouse.speech.stt-model`, default `whisper-tiny` — 39MB, fast, acceptable quality for voice notes). Larger models (`whisper-base`, `whisper-small`) configurable for higher accuracy at the cost of latency. Platform-specific native libraries are resolved via standard JNI/FFM library path — macOS (Apple Silicon Metal), Linux (CPU/CUDA) supported.
+
 ### 3.4 Future: avatar lip-sync
 
 TTS phoneme timing output feeds avatar lip-sync animation (casehubio/blocks#154). Not in scope for this design — filed as a future capability.
@@ -118,11 +126,12 @@ HTTP POST upload to `/api/voice/upload`. Push-to-talk means the recording comple
 
 ### 4.3 Server processing
 
-1. JAX-RS `VoiceUploadResource` receives multipart form data
-2. Invokes `SpeechToTextService.transcribe()` via the blocks STT SPI
+1. JAX-RS `VoiceUploadResource` receives multipart form data (audio file saved to session working directory)
+2. Invokes `SpeechToTextService.transcribe(audioPath, options)` via the blocks STT SPI
 3. Writes raw transcript to session working directory as `raw-transcript-{timestamp}.md`
-4. Emits `voice-transcript-ready` WebSocket event
-5. NotesFacet picks up the raw transcript via artifact contract
+4. Fires `TranscriptReady` CDI event (carries session ID, transcript path, optional goal tag)
+5. Emits `voice-transcript-ready` WebSocket event to browser (scoped to `voice:{sessionId}` topic)
+6. NotesFacet observes the CDI event and starts the cleanup pipeline
 
 ## 5. Notes Pipeline
 
@@ -145,6 +154,17 @@ HTTP POST upload to `/api/voice/upload`. Push-to-talk means the recording comple
 - Model selection: can vary by goal — prompts may benefit from a stronger model
 
 **Key constraint:** No stage changes what was said — only how clearly it reads. The note is the boundary between capture and creation.
+
+### 5.3 Pipeline states and error handling
+
+```
+PENDING → STT_RUNNING → STAGE1_RUNNING → STAGE1_COMPLETE → [STAGE2_RUNNING → COMPLETE] | FAILED
+```
+
+- **STT failure:** Raw audio file preserved in working directory. User notified via `pipeline-error` WebSocket event. Retryable via `refine_note` MCP tool or UI retry button.
+- **Stage 1 LLM failure** (API error, timeout, schema mismatch after retries): Raw transcript preserved. Note created in vault with `status: raw-only` frontmatter — usable but unprocessed. User sees error state in `<pipeline-status>` panel. Retryable.
+- **Stage 2 LLM failure:** Stage 1 output (cleaned note) already written to vault. Note usable without refinement. `status: cleaned` in frontmatter. Retry stage 2 independently via `refine_note`.
+- **Partial completion:** Each stage writes its output file before advancing. On session restore, NotesFacet scans for the last completed stage file and resumes from there.
 
 ### 5.2 Non-voice input
 
@@ -195,8 +215,11 @@ Fields: `date` (capture timestamp), `source` (voice | text | import), `duration`
 - Pipeline recovery is file-based: each stage writes its output file as a checkpoint. On session restore, NotesFacet scans the working directory for incomplete pipeline artifacts and resumes from the last completed stage.
 - In-progress recordings are ephemeral audio buffers — a crash loses the current recording but never corrupts the vault
 - No transactional guarantee between STT completion and vault write — a crash between these steps loses the transcript but not the audio (which can be re-processed)
+- **Raw file lifecycle:** The raw transcript is initially written to the session working directory (`raw-transcript-{timestamp}.md`). When the pipeline completes, the raw transcript is *moved* (not copied) to the vault's `raw/` directory — the working directory copy is removed. The vault's `raw/` is the permanent record. The note's frontmatter `raw:` field points to the vault copy. During pipeline execution, the working directory is the source of truth; after completion, the vault is.
 
 ## 7. MCP Tools
+
+**Registration pattern:** All voice/notes tools are registered statically via `@ApplicationScoped` + `@Tool` (same as existing debate and brainstorm tools). Each tool method checks facet state as a precondition — e.g. `requireFacet(session, "voice")` — and returns an error message if the facet is not active. This follows the proven pattern in `DebateMcpTools` and `BrainstormMcpTools`. True dynamic tool registration (tools appearing/disappearing from the MCP tool list) is deferred until #117 delivers the platform `WorkerFunctionProvider` mechanism.
 
 ### 7.1 VoiceFacet tools (active when voice facet is activated)
 
@@ -234,6 +257,8 @@ All panels are LitElement with Shadow DOM, registered via `registerPanel()`, orc
 
 ### WebSocket events (via existing /api/ws)
 
+Events are scoped to `voice:{sessionId}` topic — clients subscribe to a specific session's events via the existing `TopicRegistry` pattern (same as `debate:{channelId}` and `brainstorm:{sessionId}`). No cross-session leakage.
+
 | Event | When |
 |-------|------|
 | `voice-recording-started` | Capture begins |
@@ -241,6 +266,7 @@ All panels are LitElement with Shadow DOM, registered via `registerPanel()`, orc
 | `voice-transcript-ready` | STT complete, raw transcript available |
 | `note-created` | Pipeline complete, note written to vault |
 | `note-updated` | Refinement applied to existing note |
+| `pipeline-error` | Pipeline stage failed (includes stage, error message) |
 
 ## 9. Phased Delivery
 
@@ -254,11 +280,13 @@ All panels are LitElement with Shadow DOM, registered via `registerPanel()`, orc
 
 | Dependency | What | Where |
 |------------|------|-------|
-| casehub-blocks speech module | STT + TTS SPI interfaces | New submodule in casehubio/blocks |
-| casehub-blocks-speech-sherpa | sherpa-onnx FFM implementation | New submodule in casehubio/blocks |
-| sherpa-onnx native library | whisper + VITS/Piper models | Runtime dependency, Apple Silicon Metal |
+| blocks-speech-api | STT + TTS SPI interfaces (pure Java) | New module in casehubio/blocks (requires multi-module restructuring) |
+| blocks-speech-sherpa | sherpa-onnx FFM implementation | New module in casehubio/blocks |
+| sherpa-onnx native library | whisper + VITS/Piper models | Runtime dependency, Apple Silicon Metal + Linux CPU/CUDA |
 | LangChain4j ChatModel | Pipeline structured output calls | Already available via casehub-platform-agent-langchain4j |
 | DraftHouseSession + Facet | Session container, facet lifecycle | Already implemented on branch |
+
+**Note:** Adding speech modules to blocks requires restructuring it from a single module into a multi-module reactor. This is a cross-repo coordination concern — a blocks issue should be filed for the restructuring before implementation begins.
 
 ## References
 
