@@ -143,6 +143,11 @@ public class DebateWebSocket {
             sendSafe(connection, PushMessage.ack(requestId));
             sendBrainstormCatchUp(connection, session);
 
+        } else if (dataset.startsWith("voice:")) {
+            String sessionId = dataset.substring("voice:".length());
+            eventBus.watchVoice(connection, sessionId);
+            sendSafe(connection, PushMessage.ack(requestId));
+
         } else if (dataset.startsWith("file:")) {
             String path = dataset.substring("file:".length());
             if (!isPathAllowed(connection, path)) {
@@ -155,8 +160,7 @@ public class DebateWebSocket {
             sendSafe(connection, PushMessage.ack(requestId));
         } else {
             sendSafe(connection, PushMessage.ack(requestId));
-        }
-    }
+        }}
 
     private void handleUnsubscribe(WebSocketConnection connection, String requestId, String dataset) {
         if (dataset == null) {return;}
@@ -174,13 +178,15 @@ public class DebateWebSocket {
         } else if (dataset.startsWith("brainstorm:")) {
             String sessionId = dataset.substring("brainstorm:".length());
             eventBus.unwatchBrainstorm(connection, sessionId);
+        } else if (dataset.startsWith("voice:")) {
+            String sessionId = dataset.substring("voice:".length());
+            eventBus.unwatchVoice(connection, sessionId);
         } else if (dataset.startsWith("file:")) {
             String path = dataset.substring("file:".length());
             eventBus.unwatchFile(connection, path);
             stopFileWatchIfUnused(path);
         }
-        sendSafe(connection, PushMessage.ack(requestId));
-    }
+        sendSafe(connection, PushMessage.ack(requestId));}
 
     private void handleListen(WebSocketConnection connection, String requestId, List<String> topics) {
         for (String topic : topics) {
@@ -198,6 +204,9 @@ public class DebateWebSocket {
                 eventBus.watchBrainstorm(connection, sessionId);
                 BrainstormSession session = brainstormRegistry.find(sessionId).orElse(null);
                 if (session != null) {sendBrainstormCatchUp(connection, session);}
+            } else if (topic.startsWith("voice:")) {
+                String sessionId = topic.substring("voice:".length());
+                eventBus.watchVoice(connection, sessionId);
             } else if (topic.startsWith("file:")) {
                 String path = topic.substring("file:".length());
                 if (isPathAllowed(connection, path)) {
@@ -206,8 +215,7 @@ public class DebateWebSocket {
                 }
             }
         }
-        sendSafe(connection, PushMessage.ack(requestId, topics));
-    }
+        sendSafe(connection, PushMessage.ack(requestId, topics));}
 
     private void handleUnlisten(WebSocketConnection connection, String requestId, List<String> topics) {
         for (String topic : topics) {
@@ -222,14 +230,16 @@ public class DebateWebSocket {
             } else if (topic.startsWith("brainstorm:")) {
                 String sessionId = topic.substring("brainstorm:".length());
                 eventBus.unwatchBrainstorm(connection, sessionId);
+            } else if (topic.startsWith("voice:")) {
+                String sessionId = topic.substring("voice:".length());
+                eventBus.unwatchVoice(connection, sessionId);
             } else if (topic.startsWith("file:")) {
                 String path = topic.substring("file:".length());
                 eventBus.unwatchFile(connection, path);
                 stopFileWatchIfUnused(path);
             }
         }
-        sendSafe(connection, PushMessage.ack(requestId));
-    }
+        sendSafe(connection, PushMessage.ack(requestId));}
 
     private void sendCatchUp(WebSocketConnection connection, DebateSession session, UUID channelId) {
         List<Message> messages = messageService.pollAfter(channelId, 0L, config.debate().catchUpLimit());

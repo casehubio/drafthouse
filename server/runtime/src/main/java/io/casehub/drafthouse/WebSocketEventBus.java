@@ -79,6 +79,28 @@ public class WebSocketEventBus {
         if (id != null) {topicRegistry.unlisten(id, List.of("brainstorm:" + sessionId));}
     }
 
+    public void watchVoice(WebSocketConnection conn, String sessionId) {
+        String id = connectionIds.get(conn);
+        if (id != null) {topicRegistry.listen(id, List.of("voice:" + sessionId));}
+    }
+
+    public void unwatchVoice(WebSocketConnection conn, String sessionId) {
+        String id = connectionIds.get(conn);
+        if (id != null) {topicRegistry.unlisten(id, List.of("voice:" + sessionId));}
+    }
+
+    public void pushVoiceEvent(String sessionId, String topic, Object payload) {
+        Set<String> connIds = topicRegistry.connections("voice:" + sessionId);
+        if (connIds.isEmpty()) {return;}
+        String json = formatEvent(topic, payload);
+        if (json == null) {return;}
+        for (String connId : connIds) {
+            WebSocketConnection conn = connections.get(connId);
+            if (conn != null) {sendSafe(conn, json);}
+        }
+    }
+
+
     public void pushBrainstormEvent(String sessionId, String topic, Object payload) {
         Set<String> connIds = topicRegistry.connections("brainstorm:" + sessionId);
         if (connIds.isEmpty()) {return;}
@@ -171,6 +193,10 @@ public class WebSocketEventBus {
 
     int brainstormWatcherCount(String sessionId) {
         return topicRegistry.connections("brainstorm:" + sessionId).size();
+    }
+
+    int voiceWatcherCount(String sessionId) {
+        return topicRegistry.connections("voice:" + sessionId).size();
     }
 
 
