@@ -7,6 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const isWatch = process.argv.includes("--watch");
 
 const blocksUiPath = resolve(__dirname, "../../../../../../blocks-ui/components/document-workbench/src");
+const blocksUiCorePath = resolve(__dirname, "../../../../../../blocks-ui/packages/blocks-ui-core/src");
 
 mkdirSync("dist", { recursive: true });
 copyFileSync("public/index.html", "dist/index.html");
@@ -22,6 +23,7 @@ const options = {
   nodePaths: [resolve(__dirname, "node_modules")],
   alias: {
     "@casehubio/blocks-ui-document-workbench": blocksUiPath,
+    "@casehubio/blocks-ui-core": blocksUiCorePath,
   },
 };
 
