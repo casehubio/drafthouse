@@ -45,7 +45,7 @@ public final class DebateE2EFixtures {
     }
 
     public static void waitForDebateEntries(Page page, int count) {
-        page.locator("debate-feed .entry").nth(count - 1).waitFor();
+        page.locator("debate-feed .entry-card").nth(count - 1).waitFor();
     }
 
     public static void waitForTrackerPoints(Page page, int count) {
