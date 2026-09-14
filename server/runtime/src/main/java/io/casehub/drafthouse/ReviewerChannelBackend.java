@@ -74,10 +74,16 @@ public class ReviewerChannelBackend implements ChannelBackend {
             return;
         }
 
-        Long inReplyTo = messageService
-                .findByCorrelationId(message.correlationId())
-                .map(m -> m.id())
-                .orElse(null);
+        Long inReplyTo = null;
+        for (int attempt = 0; attempt < 10 && inReplyTo == null; attempt++) {
+            inReplyTo = messageService
+                    .findByCorrelationId(message.correlationId())
+                    .map(m -> m.id())
+                    .orElse(null);
+            if (inReplyTo == null) {
+                try { Thread.sleep(50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+            }
+        }
         if (inReplyTo == null) {
             LOG.warning("Could not resolve inReplyTo for correlationId " + message.correlationId()
                     + " on channel " + channel.name() + " — skipping dispatch");
