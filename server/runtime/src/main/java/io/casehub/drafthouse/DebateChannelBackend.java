@@ -123,7 +123,7 @@ public class DebateChannelBackend implements ChannelBackend {
         if (session.orchestrator() != null && session.markConverseStarted()) {
             io.casehub.qhorus.api.message.MessageView triggeringMessage = new io.casehub.qhorus.api.message.MessageView(
                     null, channel.id(), message.sender(), message.type(),
-                    message.content(), message.correlationId(), message.inReplyTo(),
+                    message.content(), message.payload(), message.correlationId(), message.inReplyTo(),
                     message.target(), message.topic(), message.artefactRefs(),
                     message.senderActorType(), java.time.Instant.now(), null, 0);
 

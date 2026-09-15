@@ -46,7 +46,7 @@ DraftHouse is an MCP-driven document review tool. An LLM client opens a document
 
 | Constraint | Detail |
 |---|---|
-| Java 17 | Sealed types, exhaustive switches on `EntryType` |
+| Java 21 | Sealed types, exhaustive switches on `EntryType`, Panama FFM for native interop |
 | Quarkus 3.34.3 | Platform BOM version |
 | casehub-qhorus 0.2-SNAPSHOT | Pre-release; `ChannelProjection` SPI (qhorus#230 ✅ shipped) |
 | casehub-platform-agent-api 0.2-SNAPSHOT | Platform AgentProvider SPI — provider-agnostic LLM invocation |
@@ -832,6 +832,66 @@ Closed in follow-up session (#33 #38 #39): instance deregistration on session en
 
 ---
 
+#### Layer — Voice/Notes
+
+**Participates in chapters:** —
+**Architectural patterns:** Two-facet split (capture/cleanup), CDI event decoupling (`TranscriptReady`), fidelity ladder pipeline, Obsidian-compatible vault storage
+**Key protocols:** —
+**Design refs:** —
+**Issues:** #117 (epic), #120 (VoiceFacet), #121 (NotesFacet), #122 (auto-session wiring)
+**Navigation:** `git log --grep="#120\|#121\|#122" --oneline`
+**Blog:** `docs/blog/2026-08-23-mdp01-voice-notes-capture.md`
+**Improvement refs:** —
+**Completed:** —
+
+#### What it adds
+
+**Before:** No voice input — all document content enters DraftHouse as files on disk. No note capture or STT pipeline.
+
+**After:** `VoiceFacet` captures browser audio via MediaRecorder and uploads to `VoiceUploadResource`; STT via blocks `SpeechToTextService` SPI produces raw transcript. `NotesFacet` runs a cleanup pipeline (LangChain4j ChatModel structured output) and stores cleaned notes in an Obsidian-compatible vault with YAML frontmatter. `TranscriptReady` CDI event decouples capture from cleanup.
+
+What this layer adds:
+- **VoiceFacet** — browser-side audio capture via MediaRecorder API; uploads audio to `POST /api/voice/upload` (`VoiceUploadResource` JAX-RS endpoint, multipart form data); server-side STT via `SpeechToTextService` SPI from `casehub-blocks`; fires `TranscriptReady` CDI event on completion
+- **NotesFacet** — observes `TranscriptReady`; runs fidelity cleanup pipeline (filler removal, sentence boundaries, paragraph breaks) via LangChain4j ChatModel structured output; optional goal-directed refinement pass; extracts metadata (tags, source context); writes Obsidian-compatible markdown with YAML frontmatter to configurable vault path
+- **VoiceUploadResource** — `POST /api/voice/upload`; JAX-RS multipart endpoint accepting audio data; delegates to `SpeechToTextService` for transcription; fires `TranscriptReady` CDI event
+- **TranscriptReady CDI event** — loose coupling between VoiceFacet and NotesFacet; carries raw transcript, source metadata, and optional session context; allows either facet to evolve independently
+- **Vault storage** — Obsidian-compatible markdown files with YAML frontmatter (source, date, tags, extracted metadata); configurable vault path; standard file structure for immediate use in any Obsidian workspace
+- **Speech SPIs in casehub-blocks** — `SpeechToTextService` and audio encoding abstractions live in the foundation tier for cross-app reuse; DraftHouse consumes the SPI, does not own it
+
+#### Accountability gaps closed
+
+| Gap | What breaks without it | Closed by |
+|---|---|---|
+| No voice input path | Spoken observations during review/debug sessions are lost | VoiceFacet browser capture + VoiceUploadResource upload |
+| No transcript cleanup | Raw STT output unreadable (filler words, no punctuation) | NotesFacet fidelity cleanup pipeline |
+| No persistent notes | Captured content exists only in memory | Obsidian vault storage with YAML frontmatter |
+| Tight capture/cleanup coupling | Can't evolve recording or cleanup independently | TranscriptReady CDI event decoupling |
+
+#### Key files
+
+- `server/runtime/src/main/java/io/casehub/drafthouse/VoiceUploadResource.java` — `POST /api/voice/upload`; multipart audio upload; delegates to `SpeechToTextService`
+- `server/runtime/src/main/java/io/casehub/drafthouse/voice/VoiceFacet.java` — server-side voice capture orchestration; fires `TranscriptReady`
+- `server/runtime/src/main/java/io/casehub/drafthouse/voice/NotesFacet.java` — cleanup pipeline; vault writer
+- `server/api/src/main/java/io/casehub/drafthouse/voice/TranscriptReady.java` — CDI event carrying raw transcript and metadata
+
+#### Key wiring
+
+**`TranscriptReady` CDI event** — fired by VoiceFacet after STT completes; observed by NotesFacet to trigger cleanup pipeline. The event carries the raw transcript text, source audio metadata, and optional session context. NotesFacet can be absent without breaking VoiceFacet.
+
+**`SpeechToTextService` SPI from casehub-blocks** — DraftHouse declares a runtime dependency on `casehub-blocks-speech-api`; the SPI is resolved via CDI at startup. Provider implementation is environment-specific (cloud STT, local Whisper, etc.).
+
+**Vault path configuration** — configurable via `casehub.drafthouse.vault.path`; defaults to a sensible local path. Notes are written as markdown with YAML frontmatter; no Obsidian-specific plugins required for basic functionality.
+
+#### Architectural decisions
+
+**Why two facets instead of one pipeline:** Capture and cleanup have different failure modes, different deployment contexts (browser vs server), and different evolution rates. A single pipeline would force both concerns to change together. The CDI event boundary means VoiceFacet can switch audio codecs or STT providers without touching NotesFacet, and NotesFacet can add cleanup passes without touching the capture path.
+
+**Why Obsidian-compatible vault:** Obsidian uses standard markdown with YAML frontmatter — no proprietary format. Notes are immediately usable in any markdown-aware tool. The vault structure (directory + markdown files) is the simplest possible persistence that still supports linking, tagging, and search. No database, no migration, no export step.
+
+**Why speech SPIs in blocks, not DraftHouse:** STT is a platform capability, not a DraftHouse-specific feature. Any CaseHub application that needs audio transcription should use the same SPI. Placing it in `casehub-blocks` (foundation tier) follows the capability ownership model in `PLATFORM.md`.
+
+---
+
 ## §10 Architectural Decisions
 
 Cross-cutting decisions not captured inline in layer or Chapter entries.
@@ -889,6 +949,11 @@ Cross-cutting decisions not captured inline in layer or Chapter entries.
 | **ReviewChannelProjection** | `ChannelProjection<ReviewState>` that folds review Q&A channel messages using `message.type()` dispatch and `actorType`-based agent classification. Renamed from the original `DebateChannelProjection` in C5. |
 | **DebateChannelProjection** | `RenderableProjection<ReviewState>` that folds debate channel messages using `META:` content header dispatch and explicit `META.agent` classification. Created in C5. |
 | **ReviewStatus.DISPUTED** | Non-terminal review point status for active debate disputes; rendered as ⚡ without strikethrough (contrast with terminal `DECLINED` which renders as 🚫 with strikethrough). Added in C5. |
+| **VoiceFacet** | Browser audio capture (MediaRecorder) + server-side STT via `SpeechToTextService` SPI; fires `TranscriptReady` CDI event |
+| **NotesFacet** | Observes `TranscriptReady`; runs fidelity cleanup pipeline (LangChain4j structured output) and writes Obsidian-compatible markdown to vault |
+| **TranscriptReady** | CDI event decoupling VoiceFacet (capture) from NotesFacet (cleanup); carries raw transcript and source metadata |
+| **VoiceUploadResource** | JAX-RS endpoint at `POST /api/voice/upload`; multipart audio upload; delegates to blocks `SpeechToTextService` |
+| **SpeechToTextService** | Foundation-tier SPI in `casehub-blocks` for audio-to-text transcription; provider-agnostic |
 
 ---
 

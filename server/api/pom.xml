@@ -25,6 +25,11 @@
     </dependency>
     <dependency>
       <groupId>io.casehub</groupId>
+      <artifactId>casehub-blocks-speech-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
       <artifactId>casehub-qhorus-api</artifactId>
       <version>${casehub.qhorus.version}</version>
     </dependency>

@@ -26,7 +26,7 @@ class DebateChannelProjectionTest {
     private static MessageView msg(MessageType type, String correlationId, String metaHeader, String bodyContent) {
         String encodedContent = META_SENTINEL + metaHeader + "\n\n" + bodyContent;
         return new MessageView(null, null, "test-sender", type,
-                encodedContent, correlationId, null, null, null, List.of(), ActorType.AGENT, null, null, 0);
+                encodedContent, null, correlationId, null, null, null, List.of(), ActorType.AGENT, null, null, 0);
     }
 
     private static String ratefacts(String entryType, String role, int round) {
@@ -63,7 +63,7 @@ class DebateChannelProjectionTest {
         ConversationState s = proj.apply(proj.identity(),
                 new MessageView(null, null, "test", MessageType.QUERY,
                         "META:entryType=RAISE|role=REV|round=1|priority=HIGH|scope=ISOLATED\n\nBody.",
-                        "pt-old", null, null, null, List.of(), ActorType.AGENT, null, null, 0));
+                        null, "pt-old", null, null, null, List.of(), ActorType.AGENT, null, null, 0));
         assertThat(s.points()).isEmpty();
     }
 
