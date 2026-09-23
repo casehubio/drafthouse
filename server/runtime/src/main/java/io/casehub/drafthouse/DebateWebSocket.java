@@ -89,9 +89,7 @@ public class DebateWebSocket {
             case PushRequest.Unsubscribe unsub -> handleUnsubscribe(connection, unsub.id(), unsub.dataset());
             case PushRequest.Listen listen -> handleListen(connection, listen.id(), listen.topics());
             case PushRequest.Unlisten unlisten -> handleUnlisten(connection, unlisten.id(), unlisten.topics());
-            case PushRequest.CommandResult ignored -> {}
-            case PushRequest.ExecutorRegister ignored -> {}
-            case PushRequest.StepResult ignored -> {}
+            default -> {}
         }
     }
 
