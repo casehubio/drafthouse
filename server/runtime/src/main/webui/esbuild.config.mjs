@@ -12,8 +12,9 @@ const pagesRoot = resolve(__dirname, "../../../../../../pages");
 
 const pagesSourcePlugin = {
   name: "pages-source-resolve",
-  setup(build) {
-    build.onResolve({ filter: /^@casehubio\// }, (args) => {
+  setup(bld) {
+    bld.onResolve({ filter: /^@casehubio\// }, (args) => {
+      if (args.path.startsWith("@casehubio/blocks-ui")) return undefined;
       const parts = args.path.replace("@casehubio/", "").split("/");
       const pkgName = parts[0];
       const subpath = parts.slice(1).join("/");
@@ -41,6 +42,8 @@ const pagesSourcePlugin = {
   },
 };
 
+const usePlugin = !existsSync(resolve(__dirname, "node_modules/@casehubio/pages-data/dist/index.js"));
+
 mkdirSync("dist", { recursive: true });
 copyFileSync("public/index.html", "dist/index.html");
 
@@ -53,7 +56,7 @@ const options = {
   minify: false,
   sourcemap: true,
   nodePaths: [resolve(__dirname, "node_modules")],
-  plugins: [pagesSourcePlugin],
+  plugins: usePlugin ? [pagesSourcePlugin] : [],
   alias: {
     "@casehubio/blocks-ui-document-workbench": blocksUiPath,
     "@casehubio/blocks-ui-core": blocksUiCorePath,
