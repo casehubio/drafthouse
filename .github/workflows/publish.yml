@@ -45,6 +45,8 @@ jobs:
           corepack enable
           find packages -name package.json -maxdepth 2 -exec sed -i 's/"file:\.\.\/[^"]*"/"workspace:*"/g' {} +
           YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+          yarn build:packages
+          yarn build:components
         env:
           GH_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

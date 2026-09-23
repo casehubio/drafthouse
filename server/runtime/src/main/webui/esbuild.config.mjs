@@ -17,7 +17,9 @@ const pagesSourcePlugin = {
       if (args.path.startsWith("@casehubio/blocks-ui")) return undefined;
       const parts = args.path.replace("@casehubio/", "").split("/");
       const pkgName = parts[0];
-      const subpath = parts.slice(1).join("/");
+      let subpath = parts.slice(1).join("/");
+      if (subpath.startsWith("dist/")) subpath = subpath.slice(5);
+      subpath = subpath.replace(/\.js$/, "");
       const dirs = ["packages", "components"];
       for (const dir of dirs) {
         const srcDir = resolve(pagesRoot, dir, pkgName, "src");
@@ -27,10 +29,10 @@ const pagesSourcePlugin = {
             if (existsSync(entry)) return { path: entry };
           } else {
             for (const candidate of [
-              resolve(srcDir, subpath, "index.ts"),
               resolve(srcDir, subpath + ".ts"),
-              resolve(srcDir, subpath, "index.js"),
+              resolve(srcDir, subpath, "index.ts"),
               resolve(srcDir, subpath + ".js"),
+              resolve(srcDir, subpath, "index.js"),
             ]) {
               if (existsSync(candidate)) return { path: candidate };
             }
@@ -42,7 +44,7 @@ const pagesSourcePlugin = {
   },
 };
 
-const usePlugin = !existsSync(resolve(__dirname, "node_modules/@casehubio/pages-data/dist/index.js"));
+const usePlugin = false;
 
 mkdirSync("dist", { recursive: true });
 copyFileSync("public/index.html", "dist/index.html");
