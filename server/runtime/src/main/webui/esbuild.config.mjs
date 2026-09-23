@@ -44,7 +44,7 @@ const pagesSourcePlugin = {
   },
 };
 
-const usePlugin = false;
+const usePlugin = !existsSync(resolve(__dirname, "node_modules/@casehubio/pages-data/dist/index.js"));
 
 mkdirSync("dist", { recursive: true });
 copyFileSync("public/index.html", "dist/index.html");
@@ -57,7 +57,7 @@ const options = {
   target: "es2022",
   minify: false,
   sourcemap: true,
-  nodePaths: [resolve(__dirname, "node_modules")],
+  nodePaths: [resolve(__dirname, "node_modules"), resolve(pagesRoot, "node_modules")],
   plugins: usePlugin ? [pagesSourcePlugin] : [],
   alias: {
     "@casehubio/blocks-ui-document-workbench": blocksUiPath,
