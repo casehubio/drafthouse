@@ -73,6 +73,9 @@ jobs:
           key: playwright-${{ hashFiles('server/pom.xml') }}
           restore-keys: playwright-
 
+      - name: Clear stale SNAPSHOT metadata
+        run: find ~/.m2/repository/io/casehub -name "_remote.repositories" -delete 2>/dev/null || true
+
       - name: Build
         run: cd server && mvn --batch-mode -U install -DskipTests
         env:
