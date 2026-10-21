@@ -132,7 +132,7 @@ Note: The `install` step is needed so `runtime` can resolve `api` from the local
 | `server/` | Multi-module Maven parent (api/ + runtime/ + claude-agent/) |
 | `server/runtime/src/main/webui/` | TypeScript webui built with Quinoa — panels, workbench, WebSocket connection |
 | `server/runtime/src/main/webui/src/index.ts` | Workbench entry point — casehub-pages layout, topbar, Electron IPC, WebSocket connection |
-| `@casehubio/blocks-ui-document-workbench` | Extracted Lit panels — document-diff, debate-feed (renamed from channel-feed), review-tracker, review-pipeline, document-timeline, context-gauge, doc-picker, brainstorm-options, brainstorm-picker, workspace-status, selection-threads (consumed from blocks-ui via esbuild alias) |
+| `@casehubio/casehub-mosaic-document-workbench` | Extracted Lit panels — document-diff, debate-feed (renamed from channel-feed), review-tracker, review-pipeline, document-timeline, context-gauge, doc-picker, brainstorm-options, brainstorm-picker, workspace-status, selection-threads (consumed from casehub-mosaic via esbuild alias) |
 | `server/api/` | Pure Java domain model — depends on casehub-blocks (context tracking, message meta, bounded projection) and qhorus-api; includes `debate/` package, `DebateSession`, `DebateSessionSnapshot`, `DebateSessionStore` SPI, `DocumentEntry`, `ComparisonPair`, `ResolvedReviewer`, `EntryType` (RAISE, AGREE, COUNTER, DISPUTE, QUALIFY, FLAG_HUMAN, DECLINED, VERIFIED, DEFERRED, MEMO, SUB_TASK_*, RESTART_CONTEXT, ROUND_SNAPSHOT, COMMENT, HUMAN_OVERRIDE, REPRIORITISE), `AgentType` (REV, IMP, SUPERVISOR, MODERATOR, SELECTOR, HUMAN), `SnapshotSource` (sealed), `DocumentSnapshot`, `DocumentTimeline`, `BrainstormSession`, `BrainstormOption`, `SelectionThread`, `ThreadStatus`, `ThreadEntry`, `PipelineSession`, `DimensionDescriptor`, `PipelinePhase`, `CheckpointStatus`, `DimensionStatus`, `PipelineDecision`, `PipelineFinding`, `PipelineDecisionParser`, `voice/TranscriptReady` (CDI event) |
 | `server/runtime/` | Quarkus 3.34.3 app — all resources, Qhorus, platform AgentProvider |
 | `server/runtime/src/main/java/io/casehub/drafthouse/` | Java resources: Ping, File, Ui, DraftHouseMcpTools, DebateMcpTools, ThreadMcpTools, BrainstormMcpTools, BrainstormService, BrainstormResource, DraftHouseInstances, HumanActionResource, DebateParticipants, DecisionFileWriter, ReviewerChannelBackend, ReviewerChannelBackendFactory, ReviewSessionRegistryImpl, DebateSessionRegistryImpl, BrainstormSessionRegistry, DebateChannelBackend, DebateChannelBackendFactory, DebateEventResource, WebSocketEventBus, DebateWebSocket, TerminalEndpoint, NoOpDebateSessionStore, JpaDebateSessionStore, DebateSessionEntity, DraftHouseReviewerRegistry, SimplePromptRenderer, ReviewerDescriptorSeeder, ReviewerResolver, DocumentReviewer, PlatformDebateAgentProvider, DebateAgentInvoker, DebatePromptAssembler, DebateResponseBuilder, PipelineMcpTools, VoiceUploadResource, voice/ (VoiceFacet, NotesFacet), debate/ (includes WorkspaceParser, WorkspaceReplayAdapter, WorkspaceWatcher, ProgressLogParser, PipelineWatcher, PipelineOrchestrator, PipelineSessionRegistry, ThreadProjection, ThreadState, ThreadView, ThreadStreamEntry) |
@@ -185,7 +185,7 @@ Browser UI (casehub-pages workbench + Lit panels)
   │   ├── LCS line diff + word-level highlights
   │   ├── Canvas minimap           ← red=A-side, green=B-side changes
   │   └── Scroll sync via anchors  ← heading-based anchor matching
-  ├── <debate-feed>                ← debate feed (LitElement, Shadow DOM, from @casehubio/blocks-ui-document-workbench)
+  ├── <debate-feed>                ← debate feed (LitElement, Shadow DOM, from @casehubio/casehub-mosaic-document-workbench)
   │   └── pages-event              ← debate events via WebSocket, grouped by round
   ├── <review-tracker>             ← review checklist (LitElement, Shadow DOM)
   │   ├── pages-event              ← derives status per pointId from event stream
@@ -223,7 +223,7 @@ Browser UI (casehub-pages workbench + Lit panels)
 
 ## Architectural Direction
 
-DraftHouse uses **casehub-pages workbench** with **Lit** (LitElement) panels. The workbench is built with `@casehubio/pages-ui` layout primitives (`rows()`, `split()`, `html()`) and rendered via `@casehubio/pages-runtime`. Panels are Lit custom elements with Shadow DOM encapsulation, registered via `registerPanel()`, and orchestrated through `onPagesEvent()` from `@casehubio/pages-component`. Tag names follow blocks-ui convention (bare descriptive names, no `drafthouse-` prefix) for future promotion to `@casehubio/blocks-ui`.
+DraftHouse uses **casehub-pages workbench** with **Lit** (LitElement) panels. The workbench is built with `@casehubio/pages-ui` layout primitives (`rows()`, `split()`, `html()`) and rendered via `@casehubio/pages-runtime`. Panels are Lit custom elements with Shadow DOM encapsulation, registered via `registerPanel()`, and orchestrated through `onPagesEvent()` from `@casehubio/pages-component`. Tag names follow casehub-mosaic convention (bare descriptive names, no `drafthouse-` prefix) for future promotion to `@casehubio/casehub-mosaic`.
 
 **Practical implications:**
 - Panels are LitElement with `configure(props)` — the method pages-runtime calls to initialize; `@property` and `@state` decorators drive reactive rendering
