@@ -7,14 +7,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const isWatch = process.argv.includes("--watch");
 
 const blocksUiPath = resolve(__dirname, "../../../../../../blocks-ui/components/document-workbench/src");
-const blocksUiCorePath = resolve(__dirname, "../../../../../../blocks-ui/packages/blocks-ui-core/src");
+const blocksUiCorePath = resolve(__dirname, "../../../../../../blocks-ui/packages/mosaic-core/src");
 const pagesRoot = resolve(__dirname, "../../../../../../pages");
 
 const pagesSourcePlugin = {
   name: "pages-source-resolve",
   setup(bld) {
     bld.onResolve({ filter: /^@casehubio\// }, (args) => {
-      if (args.path.startsWith("@casehubio/blocks-ui")) return undefined;
+      if (args.path.startsWith("@casehubio/mosaic")) return undefined;
       const parts = args.path.replace("@casehubio/", "").split("/");
       const pkgName = parts[0];
       let subpath = parts.slice(1).join("/");
@@ -60,8 +60,8 @@ const options = {
   nodePaths: [resolve(__dirname, "node_modules"), resolve(pagesRoot, "node_modules")],
   plugins: usePlugin ? [pagesSourcePlugin] : [],
   alias: {
-    "@casehubio/blocks-ui-document-workbench": blocksUiPath,
-    "@casehubio/blocks-ui-core": blocksUiCorePath,
+    "@casehubio/mosaic-document-workbench": blocksUiPath,
+    "@casehubio/mosaic-core": blocksUiCorePath,
   },
 };
 
