@@ -3,8 +3,8 @@ import {
   rows, split, hostPanel, withId, html,
 } from "@casehubio/pages-ui";
 
-// Import panels from blocks-ui-document-workbench
-import "@casehubio/blocks-ui-document-workbench";
+// Import panels from mosaic-document-workbench
+import "@casehubio/mosaic-document-workbench";
 import "@casehubio/pages-component-terminal";
 
 // Voice/notes panels (local)
