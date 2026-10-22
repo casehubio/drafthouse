@@ -6,8 +6,8 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isWatch = process.argv.includes("--watch");
 
-const blocksUiPath = resolve(__dirname, "../../../../../../blocks-ui/components/document-workbench/src");
-const blocksUiCorePath = resolve(__dirname, "../../../../../../blocks-ui/packages/mosaic-core/src");
+const mosaicPath = resolve(__dirname, "../../../../../../casehub-mosaic/components/document-workbench/src");
+const mosaicCorePath = resolve(__dirname, "../../../../../../casehub-mosaic/packages/mosaic-core/src");
 const pagesRoot = resolve(__dirname, "../../../../../../pages");
 
 const pagesSourcePlugin = {
@@ -60,8 +60,8 @@ const options = {
   nodePaths: [resolve(__dirname, "node_modules"), resolve(pagesRoot, "node_modules")],
   plugins: usePlugin ? [pagesSourcePlugin] : [],
   alias: {
-    "@casehubio/mosaic-document-workbench": blocksUiPath,
-    "@casehubio/mosaic-core": blocksUiCorePath,
+    "@casehubio/mosaic-document-workbench": mosaicPath,
+    "@casehubio/mosaic-core": mosaicCorePath,
   },
 };
 
