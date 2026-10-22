@@ -851,12 +851,12 @@ Closed in follow-up session (#33 #38 #39): instance deregistration on session en
 **After:** `VoiceFacet` captures browser audio via MediaRecorder and uploads to `VoiceUploadResource`; STT via blocks `SpeechToTextService` SPI produces raw transcript. `NotesFacet` runs a cleanup pipeline (LangChain4j ChatModel structured output) and stores cleaned notes in an Obsidian-compatible vault with YAML frontmatter. `TranscriptReady` CDI event decouples capture from cleanup.
 
 What this layer adds:
-- **VoiceFacet** — browser-side audio capture via MediaRecorder API; uploads audio to `POST /api/voice/upload` (`VoiceUploadResource` JAX-RS endpoint, multipart form data); server-side STT via `SpeechToTextService` SPI from `casehub-blocks`; fires `TranscriptReady` CDI event on completion
+- **VoiceFacet** — browser-side audio capture via MediaRecorder API; uploads audio to `POST /api/voice/upload` (`VoiceUploadResource` JAX-RS endpoint, multipart form data); server-side STT via `SpeechToTextService` SPI from `casehub-agency`; fires `TranscriptReady` CDI event on completion
 - **NotesFacet** — observes `TranscriptReady`; runs fidelity cleanup pipeline (filler removal, sentence boundaries, paragraph breaks) via LangChain4j ChatModel structured output; optional goal-directed refinement pass; extracts metadata (tags, source context); writes Obsidian-compatible markdown with YAML frontmatter to configurable vault path
 - **VoiceUploadResource** — `POST /api/voice/upload`; JAX-RS multipart endpoint accepting audio data; delegates to `SpeechToTextService` for transcription; fires `TranscriptReady` CDI event
 - **TranscriptReady CDI event** — loose coupling between VoiceFacet and NotesFacet; carries raw transcript, source metadata, and optional session context; allows either facet to evolve independently
 - **Vault storage** — Obsidian-compatible markdown files with YAML frontmatter (source, date, tags, extracted metadata); configurable vault path; standard file structure for immediate use in any Obsidian workspace
-- **Speech SPIs in casehub-blocks** — `SpeechToTextService` and audio encoding abstractions live in the foundation tier for cross-app reuse; DraftHouse consumes the SPI, does not own it
+- **Speech SPIs in casehub-agency** — `SpeechToTextService` and audio encoding abstractions live in the foundation tier for cross-app reuse; DraftHouse consumes the SPI, does not own it
 
 #### Accountability gaps closed
 
@@ -878,7 +878,7 @@ What this layer adds:
 
 **`TranscriptReady` CDI event** — fired by VoiceFacet after STT completes; observed by NotesFacet to trigger cleanup pipeline. The event carries the raw transcript text, source audio metadata, and optional session context. NotesFacet can be absent without breaking VoiceFacet.
 
-**`SpeechToTextService` SPI from casehub-blocks** — DraftHouse declares a runtime dependency on `casehub-blocks-speech-api`; the SPI is resolved via CDI at startup. Provider implementation is environment-specific (cloud STT, local Whisper, etc.).
+**`SpeechToTextService` SPI from casehub-agency** — DraftHouse declares a runtime dependency on `casehub-agency-speech-api`; the SPI is resolved via CDI at startup. Provider implementation is environment-specific (cloud STT, local Whisper, etc.).
 
 **Vault path configuration** — configurable via `casehub.drafthouse.vault.path`; defaults to a sensible local path. Notes are written as markdown with YAML frontmatter; no Obsidian-specific plugins required for basic functionality.
 
@@ -888,7 +888,7 @@ What this layer adds:
 
 **Why Obsidian-compatible vault:** Obsidian uses standard markdown with YAML frontmatter — no proprietary format. Notes are immediately usable in any markdown-aware tool. The vault structure (directory + markdown files) is the simplest possible persistence that still supports linking, tagging, and search. No database, no migration, no export step.
 
-**Why speech SPIs in blocks, not DraftHouse:** STT is a platform capability, not a DraftHouse-specific feature. Any CaseHub application that needs audio transcription should use the same SPI. Placing it in `casehub-blocks` (foundation tier) follows the capability ownership model in `PLATFORM.md`.
+**Why speech SPIs in agency, not DraftHouse:** STT is a platform capability, not a DraftHouse-specific feature. Any CaseHub application that needs audio transcription should use the same SPI. Placing it in `casehub-agency` (foundation tier) follows the capability ownership model in `PLATFORM.md`.
 
 ---
 
@@ -953,7 +953,7 @@ Cross-cutting decisions not captured inline in layer or Chapter entries.
 | **NotesFacet** | Observes `TranscriptReady`; runs fidelity cleanup pipeline (LangChain4j structured output) and writes Obsidian-compatible markdown to vault |
 | **TranscriptReady** | CDI event decoupling VoiceFacet (capture) from NotesFacet (cleanup); carries raw transcript and source metadata |
 | **VoiceUploadResource** | JAX-RS endpoint at `POST /api/voice/upload`; multipart audio upload; delegates to blocks `SpeechToTextService` |
-| **SpeechToTextService** | Foundation-tier SPI in `casehub-blocks` for audio-to-text transcription; provider-agnostic |
+| **SpeechToTextService** | Foundation-tier SPI in `casehub-agency` for audio-to-text transcription; provider-agnostic |
 
 ---
 
