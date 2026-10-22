@@ -848,7 +848,7 @@ Closed in follow-up session (#33 #38 #39): instance deregistration on session en
 
 **Before:** No voice input — all document content enters DraftHouse as files on disk. No note capture or STT pipeline.
 
-**After:** `VoiceFacet` captures browser audio via MediaRecorder and uploads to `VoiceUploadResource`; STT via blocks `SpeechToTextService` SPI produces raw transcript. `NotesFacet` runs a cleanup pipeline (LangChain4j ChatModel structured output) and stores cleaned notes in an Obsidian-compatible vault with YAML frontmatter. `TranscriptReady` CDI event decouples capture from cleanup.
+**After:** `VoiceFacet` captures browser audio via MediaRecorder and uploads to `VoiceUploadResource`; STT via agency `SpeechToTextService` SPI produces raw transcript. `NotesFacet` runs a cleanup pipeline (LangChain4j ChatModel structured output) and stores cleaned notes in an Obsidian-compatible vault with YAML frontmatter. `TranscriptReady` CDI event decouples capture from cleanup.
 
 What this layer adds:
 - **VoiceFacet** — browser-side audio capture via MediaRecorder API; uploads audio to `POST /api/voice/upload` (`VoiceUploadResource` JAX-RS endpoint, multipart form data); server-side STT via `SpeechToTextService` SPI from `casehub-agency`; fires `TranscriptReady` CDI event on completion
@@ -952,7 +952,7 @@ Cross-cutting decisions not captured inline in layer or Chapter entries.
 | **VoiceFacet** | Browser audio capture (MediaRecorder) + server-side STT via `SpeechToTextService` SPI; fires `TranscriptReady` CDI event |
 | **NotesFacet** | Observes `TranscriptReady`; runs fidelity cleanup pipeline (LangChain4j structured output) and writes Obsidian-compatible markdown to vault |
 | **TranscriptReady** | CDI event decoupling VoiceFacet (capture) from NotesFacet (cleanup); carries raw transcript and source metadata |
-| **VoiceUploadResource** | JAX-RS endpoint at `POST /api/voice/upload`; multipart audio upload; delegates to blocks `SpeechToTextService` |
+| **VoiceUploadResource** | JAX-RS endpoint at `POST /api/voice/upload`; multipart audio upload; delegates to agency `SpeechToTextService` |
 | **SpeechToTextService** | Foundation-tier SPI in `casehub-agency` for audio-to-text transcription; provider-agnostic |
 
 ---
