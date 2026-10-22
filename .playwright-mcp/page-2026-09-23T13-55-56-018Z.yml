@@ -1,0 +1,569 @@
+- generic [ref=e4]:
+  - generic [ref=e6]:
+    - strong [ref=e7]: DraftHouse
+    - button "⇅ Sync" [ref=e8] [cursor=pointer]
+    - button "⇄ Swap" [ref=e9] [cursor=pointer]
+    - button "⫏ Split" [ref=e10] [cursor=pointer]
+    - button "◀" [ref=e11] [cursor=pointer]
+    - generic [ref=e12]: — / —
+    - button "▶" [ref=e13] [cursor=pointer]
+    - generic [ref=e14]: ~10 −0 +0
+    - generic [ref=e15]: A B
+    - status "Workspace status"
+    - button "🎤" [ref=e19] [cursor=pointer]
+    - button "💬 Debate" [ref=e20] [cursor=pointer]
+    - button "🧵 Threads" [ref=e21] [cursor=pointer]
+    - button "📋 Review" [ref=e22] [cursor=pointer]
+    - button "📝 Notes" [ref=e23] [cursor=pointer]
+    - button "⚙ Pipeline" [ref=e24] [cursor=pointer]
+  - generic [ref=e25]:
+    - region "Document diff" [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - textbox "Click to rename" [ref=e34]: sample-a.md
+          - generic [ref=e35]: /Users/mdproctor/claude/casehub/drafthouse/sample-a.md
+          - button "Choose…" [ref=e36] [cursor=pointer]
+        - generic [ref=e38]:
+          - heading "What Is a Rule Engine?" [level=1] [ref=e39]
+          - paragraph [ref=e40]:
+            - text: A rule engine
+            - mark [ref=e41]: is
+            - mark [ref=e42]: a
+            - mark [ref=e43]: software
+            - mark [ref=e44]: system
+            - mark [ref=e45]: that
+            - mark [ref=e46]: enables
+            - mark [ref=e47]: the
+            - mark [ref=e48]: execution
+            - mark [ref=e49]: of
+            - text: business
+            - mark [ref=e50]: rules
+            - mark [ref=e51]: in
+            - mark [ref=e52]: a
+            - mark [ref=e53]: runtime
+            - mark [ref=e54]: production
+            - mark [ref=e55]: environment.
+            - text: It
+            - mark [ref=e56]: separates
+            - mark [ref=e57]: business
+            - text: logic
+            - mark [ref=e58]: from
+            - mark [ref=e59]: the
+            - text: application
+            - mark [ref=e60]: code,
+            - mark [ref=e61]: allowing
+            - mark [ref=e62]: domain
+            - mark [ref=e63]: experts
+            - mark [ref=e64]: to
+            - mark [ref=e65]: define
+            - mark [ref=e66]: and
+            - mark [ref=e67]: modify
+            - mark [ref=e68]: rules
+            - mark [ref=e69]: without
+            - mark [ref=e70]: requiring
+            - mark [ref=e71]: changes
+            - mark [ref=e72]: to
+            - text: the
+            - mark [ref=e73]: underlying
+            - mark [ref=e74]: system.
+          - heading "Core Concepts" [level=2] [ref=e75]
+          - heading "Rules" [level=3] [ref=e76]
+          - paragraph [ref=e77]:
+            - mark [ref=e78]: A
+            - text: rule
+            - mark [ref=e79]: consists
+            - mark [ref=e80]: of
+            - text: "two parts: a"
+            - strong [ref=e81]: condition
+            - mark [ref=e82]: (the
+            - mark [ref=e83]: "\"when\""
+            - mark [ref=e84]: clause)
+            - text: and an
+            - strong [ref=e85]:
+              - mark [ref=e86]: action
+            - mark [ref=e87]: (the
+            - mark [ref=e88]: "\"then\""
+            - mark [ref=e89]: clause).
+            - mark [ref=e90]: When
+            - text: the condition
+            - mark [ref=e91]: evaluates
+            - mark [ref=e92]: to
+            - mark [ref=e93]: "true"
+            - mark [ref=e94]: against
+            - mark [ref=e95]: the
+            - mark [ref=e96]: working
+            - mark [ref=e97]: memory,
+            - text: the
+            - mark [ref=e98]: associated
+            - text: action
+            - mark [ref=e99]: is
+            - mark [ref=e100]: executed.
+          - code [ref=e102]: rule "Flag large transactions" when Transaction( amount > 10000 ) then alert.flag( "Large transaction detected" ); end
+          - heading "Working Memory" [level=3] [ref=e103]
+          - paragraph [ref=e104]:
+            - mark [ref=e105]: The
+            - mark [ref=e106]: working
+            - mark [ref=e107]: memory
+            - text: is
+            - mark [ref=e108]: the
+            - mark [ref=e109]: runtime
+            - text: data
+            - mark [ref=e110]: store
+            - mark [ref=e111]: that
+            - mark [ref=e112]: holds
+            - mark [ref=e113]: the
+            - mark [ref=e114]: facts
+            - mark [ref=e115]: —
+            - mark [ref=e116]: objects
+            - mark [ref=e117]: that
+            - mark [ref=e118]: the
+            - mark [ref=e119]: rule
+            - text: engine
+            - mark [ref=e120]: operates
+            - mark [ref=e121]: on.
+            - mark [ref=e122]: Rules
+            - mark [ref=e123]: fire
+            - mark [ref=e124]: when
+            - text: the
+            - mark [ref=e125]: state
+            - mark [ref=e126]: of
+            - mark [ref=e127]: working
+            - mark [ref=e128]: memory
+            - mark [ref=e129]: satisfies
+            - mark [ref=e130]: their
+            - mark [ref=e131]: conditions.
+          - heading "The Inference Engine" [level=3] [ref=e132]
+          - paragraph [ref=e133]:
+            - text: The
+            - mark [ref=e134]: inference
+            - text: engine
+            - mark [ref=e135]: is
+            - mark [ref=e136]: responsible
+            - mark [ref=e137]: for
+            - mark [ref=e138]: matching
+            - mark [ref=e139]: facts
+            - text: against
+            - mark [ref=e140]: rules,
+            - mark [ref=e141]: determining
+            - text: which
+            - mark [ref=e142]: rules
+            - mark [ref=e143]: are
+            - mark [ref=e144]: eligible
+            - text: to
+            - mark [ref=e145]: fire
+            - mark [ref=e146]: (the
+            - strong [ref=e147]:
+              - mark [ref=e148]: conflict
+              - mark [ref=e149]: set
+            - mark [ref=e150]: ),
+            - mark [ref=e151]: and
+            - mark [ref=e152]: then
+            - mark [ref=e153]: executing
+            - mark [ref=e154]: those
+            - text: rules
+            - mark [ref=e155]: according
+            - mark [ref=e156]: to
+            - mark [ref=e157]: a
+            - mark [ref=e158]: conflict
+            - mark [ref=e159]: resolution
+            - mark [ref=e160]: strategy.
+          - heading "Why Use One?" [level=2] [ref=e161]
+          - paragraph [ref=e162]:
+            - mark [ref=e163]: Centralising
+            - mark [ref=e164]: business
+            - mark [ref=e165]: logic
+            - mark [ref=e166]: in
+            - mark [ref=e167]: a
+            - mark [ref=e168]: rule
+            - mark [ref=e169]: engine
+            - mark [ref=e170]: offers
+            - mark [ref=e171]: several
+            - mark [ref=e172]: "advantages:"
+          - list [ref=e173]:
+            - listitem [ref=e174]:
+              - strong [ref=e175]:
+                - mark [ref=e176]: Separation
+                - mark [ref=e177]: of
+                - mark [ref=e178]: concerns
+              - text: —
+              - mark [ref=e179]: rules
+              - mark [ref=e180]: are
+              - mark [ref=e181]: expressed
+              - mark [ref=e182]: in
+              - mark [ref=e183]: a
+              - mark [ref=e184]: form
+              - mark [ref=e185]: readable
+              - mark [ref=e186]: by
+              - text: domain
+              - mark [ref=e187]: experts,
+              - mark [ref=e188]: not
+              - mark [ref=e189]: just
+              - mark [ref=e190]: developers
+            - listitem [ref=e191]:
+              - strong [ref=e192]:
+                - mark [ref=e193]: Auditability
+              - mark [ref=e194]: —
+              - mark [ref=e195]: rule
+              - mark [ref=e196]: execution
+              - text: can
+              - mark [ref=e197]: be
+              - mark [ref=e198]: traced,
+              - mark [ref=e199]: making
+              - mark [ref=e200]: compliance
+              - mark [ref=e201]: reporting
+              - mark [ref=e202]: straightforward
+            - listitem [ref=e203]:
+              - strong [ref=e204]:
+                - mark [ref=e205]: Agility
+              - mark [ref=e206]: —
+              - text: rules can
+              - mark [ref=e207]: be
+              - mark [ref=e208]: changed
+              - text: without a full redeploy
+              - mark [ref=e209]: of
+              - mark [ref=e210]: the
+              - mark [ref=e211]: application
+          - heading [level=2] [ref=e212]:
+            - mark [ref=e213]: Limitations
+          - paragraph [ref=e214]:
+            - mark [ref=e215]: Rule
+            - mark [ref=e216]: engines
+            - mark [ref=e217]: add
+            - mark [ref=e218]: operational
+            - mark [ref=e219]: complexity.
+            - mark [ref=e220]: They
+            - mark [ref=e221]: require
+            - mark [ref=e222]: careful
+            - mark [ref=e223]: performance
+            - mark [ref=e224]: tuning
+            - mark [ref=e225]: for
+            - mark [ref=e226]: large
+            - mark [ref=e227]: fact
+            - mark [ref=e228]: sets,
+            - mark [ref=e229]: and
+            - mark [ref=e230]: the
+            - mark [ref=e231]: declarative
+            - mark [ref=e232]: model
+            - mark [ref=e233]: can
+            - mark [ref=e234]: be
+            - mark [ref=e235]: difficult
+            - text: for
+            - mark [ref=e236]: developers
+            - mark [ref=e237]: unfamiliar
+            - mark [ref=e238]: with
+            - mark [ref=e239]: forward-chaining
+            - mark [ref=e240]: inference
+            - text: to
+            - mark [ref=e241]: reason
+            - mark [ref=e242]: about.
+          - paragraph [ref=e243]:
+            - mark [ref=e244]: For
+            - mark [ref=e245]: simple
+            - mark [ref=e246]: conditional
+            - mark [ref=e247]: logic
+            - mark [ref=e248]: —
+            - mark [ref=e249]: a
+            - mark [ref=e250]: handful
+            - mark [ref=e251]: of
+            - code [ref=e252]: if/else
+            - mark [ref=e253]: branches
+            - mark [ref=e254]: —
+            - mark [ref=e255]: a
+            - mark [ref=e256]: rule
+            - mark [ref=e257]: engine
+            - mark [ref=e258]: is
+            - mark [ref=e259]: likely
+            - mark [ref=e260]: overkill.
+            - text: They
+            - mark [ref=e261]: become
+            - mark [ref=e262]: valuable
+            - text: when
+            - mark [ref=e263]: the
+            - mark [ref=e264]: number
+            - mark [ref=e265]: and
+            - mark [ref=e266]: complexity
+            - text: of
+            - mark [ref=e267]: business
+            - text: rules
+            - mark [ref=e268]: exceeds
+            - mark [ref=e269]: what
+            - mark [ref=e270]: can
+            - mark [ref=e271]: be
+            - mark [ref=e272]: managed
+            - mark [ref=e273]: in
+            - mark [ref=e274]: procedural
+            - mark [ref=e275]: code.
+          - heading "Further Reading" [level=2] [ref=e276]
+          - list [ref=e277]:
+            - listitem [ref=e278]:
+              - mark [ref=e279]: Drools
+              - mark [ref=e280]: "documentation:"
+              - link "https://drools.org" [ref=e281] [cursor=pointer]:
+                - /url: https://drools.org
+            - listitem [ref=e282]:
+              - mark [ref=e283]: RETE
+              - mark [ref=e284]: "algorithm:"
+              - mark [ref=e285]: Forgy,
+              - mark [ref=e286]: C.L.
+              - mark [ref=e287]: (1982).
+              - emphasis [ref=e288]:
+                - mark [ref=e289]: "Rete:"
+                - mark [ref=e290]: A
+                - mark [ref=e291]: fast
+                - mark [ref=e292]: algorithm
+                - mark [ref=e293]: for
+                - mark [ref=e294]: the
+                - mark [ref=e295]: many
+                - mark [ref=e296]: pattern/many
+                - mark [ref=e297]: object
+                - mark [ref=e298]: pattern
+                - mark [ref=e299]: match
+                - mark [ref=e300]: problem
+              - mark [ref=e301]: .
+              - text: Artificial
+              - mark [ref=e302]: Intelligence,
+              - mark [ref=e303]: 19(1),
+              - mark [ref=e304]: 17–37.
+      - generic [ref=e307]:
+        - generic [ref=e308]:
+          - textbox "Click to rename" [ref=e309]: sample-b.md
+          - generic [ref=e310]: /Users/mdproctor/claude/casehub/drafthouse/sample-b.md
+          - button "Choose…" [ref=e311] [cursor=pointer]
+        - generic [ref=e313]:
+          - heading "What Is a Rule Engine?" [level=1] [ref=e314]
+          - paragraph [ref=e315]:
+            - text: A rule engine
+            - mark [ref=e316]: runs
+            - text: business
+            - mark [ref=e317]: rules.
+            - text: It
+            - mark [ref=e318]: keeps
+            - mark [ref=e319]: that
+            - text: logic
+            - mark [ref=e320]: out
+            - mark [ref=e321]: of
+            - mark [ref=e322]: your
+            - text: application
+            - mark [ref=e323]: code
+            - mark [ref=e324]: so
+            - text: the
+            - mark [ref=e325]: people
+            - mark [ref=e326]: who
+            - mark [ref=e327]: understand
+            - mark [ref=e328]: the
+            - mark [ref=e329]: business
+            - mark [ref=e330]: —
+            - mark [ref=e331]: not
+            - mark [ref=e332]: just
+            - mark [ref=e333]: developers
+            - mark [ref=e334]: —
+            - mark [ref=e335]: can
+            - mark [ref=e336]: read
+            - mark [ref=e337]: and
+            - mark [ref=e338]: change
+            - mark [ref=e339]: it.
+          - heading "Core Concepts" [level=2] [ref=e340]
+          - heading "Rules" [level=3] [ref=e341]
+          - paragraph [ref=e342]:
+            - mark [ref=e343]: Every
+            - text: rule
+            - mark [ref=e344]: has
+            - text: "two parts: a condition and an"
+            - mark [ref=e345]: action.
+            - mark [ref=e346]: If
+            - text: the condition
+            - mark [ref=e347]: matches,
+            - text: the action
+            - mark [ref=e348]: fires.
+          - code [ref=e350]: rule "Flag large transactions" when Transaction( amount > 10000 ) then alert.flag( "Large transaction detected" ); end
+          - heading "Working Memory" [level=3] [ref=e351]
+          - paragraph [ref=e352]:
+            - mark [ref=e353]: This
+            - text: is
+            - mark [ref=e354]: where
+            - mark [ref=e355]: your
+            - text: data
+            - mark [ref=e356]: lives
+            - mark [ref=e357]: at
+            - mark [ref=e358]: runtime.
+            - mark [ref=e359]: The
+            - text: engine
+            - mark [ref=e360]: watches
+            - mark [ref=e361]: it
+            - mark [ref=e362]: and
+            - mark [ref=e363]: fires
+            - mark [ref=e364]: rules
+            - mark [ref=e365]: whenever
+            - text: the
+            - mark [ref=e366]: data
+            - mark [ref=e367]: matches
+            - mark [ref=e368]: a
+            - mark [ref=e369]: condition.
+          - heading "The Inference Engine" [level=3] [ref=e370]
+          - paragraph [ref=e371]:
+            - text: The engine
+            - mark [ref=e372]: compares
+            - mark [ref=e373]: your
+            - mark [ref=e374]: data
+            - text: against
+            - mark [ref=e375]: every
+            - mark [ref=e376]: rule,
+            - mark [ref=e377]: collects
+            - mark [ref=e378]: the
+            - mark [ref=e379]: ones
+            - mark [ref=e380]: that
+            - mark [ref=e381]: match,
+            - mark [ref=e382]: then
+            - mark [ref=e383]: decides
+            - text: which to
+            - mark [ref=e384]: run
+            - mark [ref=e385]: first.
+            - mark [ref=e386]: This
+            - mark [ref=e387]: matching
+            - mark [ref=e388]: step
+            - mark [ref=e389]: is
+            - mark [ref=e390]: what
+            - mark [ref=e391]: makes
+            - mark [ref=e392]: rule
+            - mark [ref=e393]: engines
+            - mark [ref=e394]: fast
+            - mark [ref=e395]: even
+            - mark [ref=e396]: with
+            - mark [ref=e397]: thousands
+            - mark [ref=e398]: of
+            - text: rules
+            - mark [ref=e399]: —
+            - mark [ref=e400]: the
+            - mark [ref=e401]: RETE
+            - mark [ref=e402]: algorithm
+            - mark [ref=e403]: avoids
+            - mark [ref=e404]: re-evaluating
+            - mark [ref=e405]: rules
+            - mark [ref=e406]: whose
+            - mark [ref=e407]: inputs
+            - mark [ref=e408]: haven't
+            - mark [ref=e409]: changed.
+          - heading "Why Use One?" [level=2] [ref=e410]
+          - paragraph [ref=e411]:
+            - mark [ref=e412]: Three
+            - mark [ref=e413]: good
+            - mark [ref=e414]: "reasons:"
+          - list [ref=e415]:
+            - listitem [ref=e416]:
+              - strong [ref=e417]:
+                - mark [ref=e418]: Readable
+                - mark [ref=e419]: logic
+              - text: — domain
+              - mark [ref=e420]: experts
+              - text: can
+              - mark [ref=e421]: read
+              - text: rules
+              - mark [ref=e422]: directly;
+              - mark [ref=e423]: "no"
+              - mark [ref=e424]: translation
+              - mark [ref=e425]: needed
+            - listitem [ref=e426]:
+              - strong [ref=e427]:
+                - mark [ref=e428]: Audit
+                - mark [ref=e429]: trail
+              - mark [ref=e430]: —
+              - mark [ref=e431]: you
+              - text: can
+              - mark [ref=e432]: trace
+              - mark [ref=e433]: exactly
+              - mark [ref=e434]: which
+              - mark [ref=e435]: rules
+              - mark [ref=e436]: fired
+              - mark [ref=e437]: and
+              - mark [ref=e438]: why
+            - listitem [ref=e439]:
+              - strong [ref=e440]:
+                - mark [ref=e441]: Easy
+                - mark [ref=e442]: updates
+              - mark [ref=e443]: —
+              - mark [ref=e444]: change
+              - mark [ref=e445]: a
+              - mark [ref=e446]: rule
+              - text: without
+              - mark [ref=e447]: touching
+              - mark [ref=e448]: application
+              - mark [ref=e449]: code
+              - mark [ref=e450]: or
+              - mark [ref=e451]: doing
+              - text: a full redeploy
+          - heading [level=2] [ref=e452]:
+            - mark [ref=e453]: When
+            - mark [ref=e454]: It's
+            - mark [ref=e455]: Not
+            - mark [ref=e456]: Worth
+            - mark [ref=e457]: It
+          - paragraph [ref=e458]:
+            - mark [ref=e459]: Don't
+            - mark [ref=e460]: reach
+            - text: for
+            - mark [ref=e461]: a
+            - mark [ref=e462]: rule
+            - mark [ref=e463]: engine
+            - text: to
+            - mark [ref=e464]: replace
+            - mark [ref=e465]: five
+            - code [ref=e466]: if/else
+            - mark [ref=e467]: statements.
+            - mark [ref=e468]: The
+            - mark [ref=e469]: operational
+            - mark [ref=e470]: overhead
+            - mark [ref=e471]: isn't
+            - mark [ref=e472]: worth
+            - mark [ref=e473]: it
+            - mark [ref=e474]: for
+            - mark [ref=e475]: simple
+            - mark [ref=e476]: cases.
+          - paragraph [ref=e477]:
+            - text: They
+            - mark [ref=e478]: earn
+            - mark [ref=e479]: their
+            - mark [ref=e480]: place
+            - text: when
+            - mark [ref=e481]: you
+            - mark [ref=e482]: have
+            - mark [ref=e483]: dozens
+            - mark [ref=e484]: or
+            - mark [ref=e485]: hundreds
+            - text: of
+            - mark [ref=e486]: overlapping
+            - text: rules
+            - mark [ref=e487]: that
+            - mark [ref=e488]: non-developers
+            - mark [ref=e489]: need
+            - mark [ref=e490]: to
+            - mark [ref=e491]: maintain.
+            - mark [ref=e492]: That's
+            - mark [ref=e493]: the
+            - mark [ref=e494]: tipping
+            - mark [ref=e495]: point.
+          - heading "Further Reading" [level=2] [ref=e496]
+          - list [ref=e497]:
+            - listitem [ref=e498]:
+              - mark [ref=e499]: "Drools:"
+              - link "https://drools.org" [ref=e500] [cursor=pointer]:
+                - /url: https://drools.org
+            - listitem [ref=e501]:
+              - mark [ref=e502]: "RETE:"
+              - mark [ref=e503]: Forgy
+              - mark [ref=e504]: (1982),
+              - emphasis [ref=e505]:
+                - text: Artificial
+                - mark [ref=e506]: Intelligence
+              - mark [ref=e507]: 19(1)
+    - generic [ref=e510]:
+      - log "Debate feed" [ref=e513]:
+        - generic [ref=e514]: No entries yet
+      - region "Selection threads" [ref=e519]:
+        - generic [ref=e520]: No threads yet.Select text in the diff to start one.
+      - log "Review tracker" [ref=e524]:
+        - generic [ref=e525]:
+          - generic [ref=e526]: 0 of 0 resolved
+          - generic [ref=e530] [cursor=pointer]:
+            - checkbox "Hide resolved" [ref=e531]
+            - text: Hide resolved
+          - generic [ref=e532]: No review points yet

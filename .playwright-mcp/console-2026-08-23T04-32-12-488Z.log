@@ -1,0 +1,4 @@
+[   58214ms] NotSupportedError: Failed to execute 'define' on 'CustomElementRegistry': the name "pages-legend" has already been used with this registry
+    at http://localhost:9001/app.js?v=1787459590597:13022:23
+    at __decorate2 (http://localhost:9001/app.js?v=1787459590597:13082:107)
+    at http://localhost:9001/app.js?v=1787459590597:13115:15
