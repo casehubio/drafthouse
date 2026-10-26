@@ -1,7 +1,7 @@
 package io.casehub.drafthouse.debate;
 
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -17,7 +17,7 @@ class ThreadStreamEntryTest {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", "t-123");
         meta.put("threadAction", "START");
-        meta.put(ConversationProtocol.ROLE, "REV");
+        meta.put(ConversationConstants.ROLE, "REV");
         meta.put("side", "A");
         meta.put("startLine", "10");
         meta.put("endLine", "15");
@@ -43,7 +43,7 @@ class ThreadStreamEntryTest {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", "t-123");
         meta.put("threadAction", "REPLY");
-        meta.put(ConversationProtocol.ROLE, "HUMAN");
+        meta.put(ConversationConstants.ROLE, "HUMAN");
         String encoded = ChannelMessageMeta.encode(META_SENTINEL, meta, "Great point");
 
         ThreadStreamEntry entry = ThreadStreamEntry.from(encoded, "sender-2");
@@ -59,7 +59,7 @@ class ThreadStreamEntryTest {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", "t-123");
         meta.put("threadAction", "RESOLVE");
-        meta.put(ConversationProtocol.ROLE, "HUMAN");
+        meta.put(ConversationConstants.ROLE, "HUMAN");
         String encoded = ChannelMessageMeta.encode(META_SENTINEL, meta, "");
 
         ThreadStreamEntry entry = ThreadStreamEntry.from(encoded, "sender-1");
@@ -71,11 +71,11 @@ class ThreadStreamEntryTest {
     @Test
     void from_nonThreadMessage_returnsNull() {
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, "RAISE");
-        meta.put(ConversationProtocol.ROLE, "REV");
-        meta.put(ConversationProtocol.ROUND, "1");
-        meta.put(ConversationProtocol.PRIORITY, "HIGH");
-        meta.put(ConversationProtocol.SCOPE, "ISOLATED");
+        meta.put(ConversationConstants.ENTRY_TYPE, "RAISE");
+        meta.put(ConversationConstants.ROLE, "REV");
+        meta.put(ConversationConstants.ROUND, "1");
+        meta.put(ConversationConstants.PRIORITY, "HIGH");
+        meta.put(ConversationConstants.SCOPE, "ISOLATED");
         String encoded = ChannelMessageMeta.encode(META_SENTINEL, meta, "debate point");
 
         ThreadStreamEntry entry = ThreadStreamEntry.from(encoded, "sender-1");
@@ -87,7 +87,7 @@ class ThreadStreamEntryTest {
     void from_missingThreadAction_returnsNull() {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", "t-123");
-        meta.put(ConversationProtocol.ROLE, "REV");
+        meta.put(ConversationConstants.ROLE, "REV");
         String encoded = ChannelMessageMeta.encode(META_SENTINEL, meta, "no action");
 
         ThreadStreamEntry entry = ThreadStreamEntry.from(encoded, "sender-1");

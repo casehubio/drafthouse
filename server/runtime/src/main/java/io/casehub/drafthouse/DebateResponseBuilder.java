@@ -2,7 +2,7 @@ package io.casehub.drafthouse;
 
 import io.casehub.agency.core.AgentResult;
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.agency.deliberation.conversation.ConversationState;
 import io.casehub.agency.deliberation.conversation.ThreadEntry;
 import io.casehub.agency.deliberation.conversation.orchestration.AgentParticipant;
@@ -28,9 +28,9 @@ public class DebateResponseBuilder implements ResponseMessageBuilder {
         int round = currentRound(currentState);
 
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, entryType);
-        meta.put(ConversationProtocol.ROLE, agent.role());
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
+        meta.put(ConversationConstants.ENTRY_TYPE, entryType);
+        meta.put(ConversationConstants.ROLE, agent.role());
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
 
         String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, body);
         String correlationId = UUID.randomUUID().toString();

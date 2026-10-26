@@ -1,7 +1,7 @@
 package io.casehub.drafthouse.debate;
 
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.drafthouse.DocumentSide;
 import io.casehub.drafthouse.SelectionScope;
 import io.casehub.drafthouse.ThreadEntry;
@@ -39,7 +39,7 @@ public class ThreadProjection implements ChannelProjection<ThreadState> {
                 return state;
             }
 
-            String role = meta.get(ConversationProtocol.ROLE);
+            String role = meta.get(ConversationConstants.ROLE);
             String body = ChannelMessageMeta.bodyContent(
                     DebateProtocol.META_SENTINEL, message.content());
 

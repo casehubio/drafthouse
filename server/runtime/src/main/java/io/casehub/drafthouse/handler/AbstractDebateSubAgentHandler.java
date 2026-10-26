@@ -3,7 +3,7 @@ package io.casehub.drafthouse.handler;
 import io.casehub.agency.communication.dispatch.ChannelAgentHandler;
 import io.casehub.agency.communication.dispatch.ChannelAgentRequest;
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.agency.deliberation.conversation.ConversationState;
 import io.casehub.agency.deliberation.conversation.ConversationPoint;
 import io.casehub.drafthouse.DebateSessionRegistry;
@@ -38,7 +38,7 @@ abstract class AbstractDebateSubAgentHandler implements ChannelAgentHandler {
     @Override
     public final boolean handles(ChannelAgentRequest request) {
         Map<String, String> meta = DebateProtocol.parseMeta(request.message().content());
-        return taskType().equals(meta.get(ConversationProtocol.TASK_TYPE));
+        return taskType().equals(meta.get(ConversationConstants.TASK_TYPE));
     }
 
     @Override
@@ -46,18 +46,18 @@ abstract class AbstractDebateSubAgentHandler implements ChannelAgentHandler {
                                                String llmOutput, ChannelAgentRequest trigger) {
         Map<String, String> meta = DebateProtocol.parseMeta(trigger.message().content());
         String subTaskId = meta.getOrDefault("subTaskId", trigger.correlationId());
-        String role = meta.get(ConversationProtocol.ROLE);
+        String role = meta.get(ConversationConstants.ROLE);
         String pointId = meta.get("pointId");
         Long inReplyTo = messageService.findByCorrelationId(subTaskId).map(m -> m.id()).orElse(null);
         String round = meta.getOrDefault("round", "0");
 
         Map<String, String> responseMeta = Map.of(
-            ConversationProtocol.ENTRY_TYPE, "SUB_TASK_FINDING",
-            ConversationProtocol.SUB_TASK_ID, subTaskId,
-            ConversationProtocol.TASK_TYPE, taskType(),
-            ConversationProtocol.ROLE, role,
-            ConversationProtocol.ROUND, round,
-            ConversationProtocol.POINT_ID, pointId != null ? pointId : ""
+            ConversationConstants.ENTRY_TYPE, "SUB_TASK_FINDING",
+            ConversationConstants.SUB_TASK_ID, subTaskId,
+            ConversationConstants.TASK_TYPE, taskType(),
+            ConversationConstants.ROLE, role,
+            ConversationConstants.ROUND, round,
+            ConversationConstants.POINT_ID, pointId != null ? pointId : ""
         );
         String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, responseMeta, llmOutput);
 

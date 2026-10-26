@@ -1,7 +1,7 @@
 package io.casehub.drafthouse.debate;
 
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.drafthouse.DebateSession;
 import io.casehub.drafthouse.WebSocketEventBus;
 import io.casehub.platform.api.identity.ActorType;
@@ -265,9 +265,9 @@ public class WorkspaceWatcher implements Closeable {
 
             if ("DEFERRED".equals(curStatus) && !"DEFERRED".equals(prevStatus)) {
                 var meta = new LinkedHashMap<String, String>();
-                meta.put(ConversationProtocol.ENTRY_TYPE, "DEFERRED");
-                meta.put(ConversationProtocol.ROLE, "REV");
-                meta.put(ConversationProtocol.ROUND, String.valueOf(roundNum));
+                meta.put(ConversationConstants.ENTRY_TYPE, "DEFERRED");
+                meta.put(ConversationConstants.ROLE, "REV");
+                meta.put(ConversationConstants.ROUND, String.valueOf(roundNum));
                 String encoded = ChannelMessageMeta.encode(
                         DebateProtocol.META_SENTINEL, meta, "Issue deferred.");
                 Long inReplyTo = raiseMessageIds.get(te.issueId());
@@ -281,9 +281,9 @@ public class WorkspaceWatcher implements Closeable {
             String prevEvidence = prev != null ? prev.evidence() : null;
             if (te.evidence() != null && !te.evidence().equals(prevEvidence)) {
                 var meta = new LinkedHashMap<String, String>();
-                meta.put(ConversationProtocol.ENTRY_TYPE, "MEMO");
-                meta.put(ConversationProtocol.ROLE, "REV");
-                meta.put(ConversationProtocol.ROUND, String.valueOf(roundNum));
+                meta.put(ConversationConstants.ENTRY_TYPE, "MEMO");
+                meta.put(ConversationConstants.ROLE, "REV");
+                meta.put(ConversationConstants.ROUND, String.valueOf(roundNum));
                 String encoded = ChannelMessageMeta.encode(
                         DebateProtocol.META_SENTINEL, meta,
                         te.issueId() + ": spec commit " + te.evidence());

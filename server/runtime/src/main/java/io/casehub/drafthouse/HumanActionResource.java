@@ -1,7 +1,7 @@
 package io.casehub.drafthouse;
 
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.agency.deliberation.conversation.ConversationState;
 import io.casehub.agency.deliberation.conversation.Priority;
 import io.casehub.drafthouse.debate.AgentType;
@@ -72,9 +72,9 @@ public class HumanActionResource {
         int round = currentRound(session);
 
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, "COMMENT");
-        meta.put(ConversationProtocol.ROLE, "HUMAN");
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
+        meta.put(ConversationConstants.ENTRY_TYPE, "COMMENT");
+        meta.put(ConversationConstants.ROLE, "HUMAN");
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
         String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, request.content());
 
         messageService.dispatch(MessageDispatch.builder()
@@ -110,12 +110,12 @@ public class HumanActionResource {
         String pointId = UUID.randomUUID().toString();
 
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, "RAISE");
-        meta.put(ConversationProtocol.ROLE, "HUMAN");
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
-        meta.put(ConversationProtocol.PRIORITY, priorityStr);
+        meta.put(ConversationConstants.ENTRY_TYPE, "RAISE");
+        meta.put(ConversationConstants.ROLE, "HUMAN");
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
+        meta.put(ConversationConstants.PRIORITY, priorityStr);
         if (request.location() != null && !request.location().isBlank()) {
-            meta.put(ConversationProtocol.LOCATION, request.location());
+            meta.put(ConversationConstants.LOCATION, request.location());
         }
         if (request.side() != null) meta.put("side", request.side());
         if (request.startLine() != null) meta.put("startLine", String.valueOf(request.startLine()));
@@ -172,9 +172,9 @@ public class HumanActionResource {
         int round = currentRound(session);
 
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, "HUMAN_OVERRIDE");
-        meta.put(ConversationProtocol.ROLE, "HUMAN");
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
+        meta.put(ConversationConstants.ENTRY_TYPE, "HUMAN_OVERRIDE");
+        meta.put(ConversationConstants.ROLE, "HUMAN");
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
         String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, request.reason());
 
         messageService.dispatch(MessageDispatch.builder()
@@ -218,10 +218,10 @@ public class HumanActionResource {
         int round = currentRound(session);
 
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, "REPRIORITISE");
-        meta.put(ConversationProtocol.ROLE, "HUMAN");
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
-        meta.put(ConversationProtocol.PRIORITY, priorityStr);
+        meta.put(ConversationConstants.ENTRY_TYPE, "REPRIORITISE");
+        meta.put(ConversationConstants.ROLE, "HUMAN");
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
+        meta.put(ConversationConstants.PRIORITY, priorityStr);
         String content = "Priority changed to " + request.newPriority();
         String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, content);
 
@@ -263,9 +263,9 @@ public class HumanActionResource {
             if (inReplyTo == null) continue;
 
             Map<String, String> meta = new LinkedHashMap<>();
-            meta.put(ConversationProtocol.ENTRY_TYPE, request.verdict());
-            meta.put(ConversationProtocol.ROLE, "HUMAN");
-            meta.put(ConversationProtocol.ROUND, String.valueOf(round));
+            meta.put(ConversationConstants.ENTRY_TYPE, request.verdict());
+            meta.put(ConversationConstants.ROLE, "HUMAN");
+            meta.put(ConversationConstants.ROUND, String.valueOf(round));
             String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta,
                     "Batch " + request.verdict().toLowerCase());
 
@@ -321,7 +321,7 @@ public class HumanActionResource {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", threadId);
         meta.put("threadAction", "START");
-        meta.put(ConversationProtocol.ROLE, "HUMAN");
+        meta.put(ConversationConstants.ROLE, "HUMAN");
         meta.put("side", request.side());
         meta.put("startLine", String.valueOf(request.startLine()));
         meta.put("endLine", String.valueOf(request.endLine()));
@@ -362,7 +362,7 @@ public class HumanActionResource {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", threadId);
         meta.put("threadAction", "REPLY");
-        meta.put(ConversationProtocol.ROLE, "HUMAN");
+        meta.put(ConversationConstants.ROLE, "HUMAN");
         String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, request.content());
 
         messageService.dispatch(MessageDispatch.builder()
@@ -393,7 +393,7 @@ public class HumanActionResource {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", threadId);
         meta.put("threadAction", "RESOLVE");
-        meta.put(ConversationProtocol.ROLE, "HUMAN");
+        meta.put(ConversationConstants.ROLE, "HUMAN");
         String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, "");
 
         messageService.dispatch(MessageDispatch.builder()

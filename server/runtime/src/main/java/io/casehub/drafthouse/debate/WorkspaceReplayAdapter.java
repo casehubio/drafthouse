@@ -1,7 +1,7 @@
 package io.casehub.drafthouse.debate;
 
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.drafthouse.DebateSession;
 import io.casehub.drafthouse.WebSocketEventBus;
 import io.casehub.platform.api.identity.ActorType;
@@ -345,12 +345,12 @@ public class WorkspaceReplayAdapter {
     private static Map<String, String> buildMeta(String entryType, String role, int round,
                                                   String priority, String scope, String location) {
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, entryType);
-        meta.put(ConversationProtocol.ROLE, role);
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
-        if (priority != null) meta.put(ConversationProtocol.PRIORITY, priority);
-        if (scope != null) meta.put(ConversationProtocol.SCOPE, scope);
-        if (location != null) meta.put(ConversationProtocol.LOCATION, location);
+        meta.put(ConversationConstants.ENTRY_TYPE, entryType);
+        meta.put(ConversationConstants.ROLE, role);
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
+        if (priority != null) meta.put(ConversationConstants.PRIORITY, priority);
+        if (scope != null) meta.put(ConversationConstants.SCOPE, scope);
+        if (location != null) meta.put(ConversationConstants.LOCATION, location);
         return meta;
     }
 
@@ -424,8 +424,8 @@ public class WorkspaceReplayAdapter {
                                         String commitHash, String documentPath,
                                         String label, Instant timestamp, String body) {
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, "ROUND_SNAPSHOT");
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
+        meta.put(ConversationConstants.ENTRY_TYPE, "ROUND_SNAPSHOT");
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
         meta.put("commitHash", commitHash);
         meta.put("documentPath", documentPath);
         meta.put("label", label);

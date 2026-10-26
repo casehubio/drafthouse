@@ -1,7 +1,7 @@
 package io.casehub.drafthouse;
 
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.drafthouse.debate.AgentType;
 import io.casehub.drafthouse.debate.DebateProtocol;
 import io.casehub.drafthouse.debate.ThreadProjection;
@@ -68,7 +68,7 @@ public class ThreadMcpTools {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", threadId);
         meta.put("threadAction", "START");
-        meta.put(ConversationProtocol.ROLE, agentRole);
+        meta.put(ConversationConstants.ROLE, agentRole);
         meta.put("side", side);
         meta.put("startLine", String.valueOf(startLine));
         meta.put("endLine", String.valueOf(endLine));
@@ -118,7 +118,7 @@ public class ThreadMcpTools {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", threadId);
         meta.put("threadAction", "REPLY");
-        meta.put(ConversationProtocol.ROLE, agentRole);
+        meta.put(ConversationConstants.ROLE, agentRole);
         String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, content);
 
         String sender = DebateParticipants.ensureSender(session, role, instanceService, registry);
@@ -154,7 +154,7 @@ public class ThreadMcpTools {
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("threadId", threadId);
         meta.put("threadAction", "RESOLVE");
-        meta.put(ConversationProtocol.ROLE, agentRole);
+        meta.put(ConversationConstants.ROLE, agentRole);
         String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, "");
 
         String sender = DebateParticipants.ensureSender(session, role, instanceService, registry);

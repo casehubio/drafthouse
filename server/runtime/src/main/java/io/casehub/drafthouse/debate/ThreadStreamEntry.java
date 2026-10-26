@@ -1,7 +1,7 @@
 package io.casehub.drafthouse.debate;
 
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 
 import java.time.Instant;
 import java.util.Map;
@@ -25,7 +25,7 @@ public record ThreadStreamEntry(
         String action = meta.get("threadAction");
         if (action == null) return null;
 
-        String role = meta.get(ConversationProtocol.ROLE);
+        String role = meta.get(ConversationConstants.ROLE);
         String body = DebateProtocol.bodyContent(encodedContent);
 
         Anchor anchor = null;

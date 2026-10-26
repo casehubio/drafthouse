@@ -3,7 +3,7 @@ package io.casehub.drafthouse.debate;
 import java.util.Map;
 
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 
 /**
  * DraftHouse-specific sentinel and convenience methods.
@@ -20,7 +20,7 @@ public final class DebateProtocol {
     }
 
     public static int parseRound(Map<String, String> meta) {
-        return ChannelMessageMeta.parseInt(meta, ConversationProtocol.ROUND);
+        return ChannelMessageMeta.parseInt(meta, ConversationConstants.ROUND);
     }
 
     public static String bodyContent(String content) {

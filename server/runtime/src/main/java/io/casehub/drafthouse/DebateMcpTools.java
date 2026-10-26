@@ -6,7 +6,7 @@ import io.casehub.agency.core.AgentResult;
 import io.casehub.agency.orchestration.termination.MaxIterationsTermination;
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
 import io.casehub.agency.communication.dispatch.ContextSnapshot;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.agency.deliberation.conversation.ConversationState;
 import io.casehub.agency.deliberation.conversation.orchestration.AgentParticipant;
 import io.casehub.agency.deliberation.conversation.orchestration.AllAgreedTermination;
@@ -253,13 +253,13 @@ public class DebateMcpTools {
 
         String              pointId = UUID.randomUUID().toString();
         Map<String, String> meta    = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, "RAISE");
-        meta.put(ConversationProtocol.ROLE, agentRole);
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
-        meta.put(ConversationProtocol.PRIORITY, priority);
-        meta.put(ConversationProtocol.SCOPE, scope);
+        meta.put(ConversationConstants.ENTRY_TYPE, "RAISE");
+        meta.put(ConversationConstants.ROLE, agentRole);
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
+        meta.put(ConversationConstants.PRIORITY, priority);
+        meta.put(ConversationConstants.SCOPE, scope);
         if (location != null && !location.isBlank()) {
-            meta.put(ConversationProtocol.LOCATION, location);
+            meta.put(ConversationConstants.LOCATION, location);
         }
         String encodedContent = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, content);
 
@@ -307,9 +307,9 @@ public class DebateMcpTools {
         if (inReplyTo == null) {return "error: point not found: " + pointId;}
 
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, entryType.toUpperCase());
-        meta.put(ConversationProtocol.ROLE, agentRole);
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
+        meta.put(ConversationConstants.ENTRY_TYPE, entryType.toUpperCase());
+        meta.put(ConversationConstants.ROLE, agentRole);
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
         String encodedContent = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, content);
 
         messageService.dispatch(MessageDispatch.builder()
@@ -345,9 +345,9 @@ public class DebateMcpTools {
         if (inReplyTo == null) {return "error: point not found: " + pointId;}
 
         Map<String, String> meta = new LinkedHashMap<>();
-        meta.put(ConversationProtocol.ENTRY_TYPE, "FLAG_HUMAN");
-        meta.put(ConversationProtocol.ROLE, agentRole);
-        meta.put(ConversationProtocol.ROUND, String.valueOf(round));
+        meta.put(ConversationConstants.ENTRY_TYPE, "FLAG_HUMAN");
+        meta.put(ConversationConstants.ROLE, agentRole);
+        meta.put(ConversationConstants.ROUND, String.valueOf(round));
         String encodedContent = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta, reason);
 
         messageService.dispatch(MessageDispatch.builder()
@@ -468,9 +468,9 @@ public class DebateMcpTools {
             AgentType role = parseRole(agentRole);
             if (role == null) {return roleError(agentRole);}
             Map<String, String> meta = new LinkedHashMap<>();
-            meta.put(ConversationProtocol.ENTRY_TYPE, "MEMO");
-            meta.put(ConversationProtocol.ROLE, agentRole);
-            meta.put(ConversationProtocol.ROUND, String.valueOf(round));
+            meta.put(ConversationConstants.ENTRY_TYPE, "MEMO");
+            meta.put(ConversationConstants.ROLE, agentRole);
+            meta.put(ConversationConstants.ROUND, String.valueOf(round));
             String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta,
                                                        Objects.requireNonNullElse(content, ""));
             messageService.dispatch(MessageDispatch.builder()
@@ -507,13 +507,13 @@ public class DebateMcpTools {
             if (role == null) {return roleError(agentRole);}
             String              subTaskId = UUID.randomUUID().toString();
             Map<String, String> meta      = new LinkedHashMap<>();
-            meta.put(ConversationProtocol.ENTRY_TYPE, "SUB_TASK_REQUEST");
-            meta.put(ConversationProtocol.ROLE, agentRole);
-            meta.put(ConversationProtocol.TASK_TYPE, Objects.requireNonNullElse(taskType, "CUSTOM"));
-            meta.put(ConversationProtocol.SUB_TASK_ID, subTaskId);
-            meta.put(ConversationProtocol.ROUND, String.valueOf(round));
+            meta.put(ConversationConstants.ENTRY_TYPE, "SUB_TASK_REQUEST");
+            meta.put(ConversationConstants.ROLE, agentRole);
+            meta.put(ConversationConstants.TASK_TYPE, Objects.requireNonNullElse(taskType, "CUSTOM"));
+            meta.put(ConversationConstants.SUB_TASK_ID, subTaskId);
+            meta.put(ConversationConstants.ROUND, String.valueOf(round));
             if (pointId != null && !pointId.isBlank()) {
-                meta.put(ConversationProtocol.POINT_ID, pointId);
+                meta.put(ConversationConstants.POINT_ID, pointId);
             }
             String encoded = ChannelMessageMeta.encode(DebateProtocol.META_SENTINEL, meta,
                                                        Objects.requireNonNullElse(customInput, ""));

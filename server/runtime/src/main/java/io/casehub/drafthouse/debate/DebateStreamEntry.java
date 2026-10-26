@@ -3,7 +3,7 @@ package io.casehub.drafthouse.debate;
 import java.time.Instant;
 import java.util.Map;
 
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.agency.deliberation.conversation.Priority;
 import io.casehub.qhorus.api.message.Message;
 
@@ -35,7 +35,7 @@ public record DebateStreamEntry(
         }
 
         // Wire key changed from "agent" to "role" — try new key first, fall back for transition
-        String agentStr = meta.get(ConversationProtocol.ROLE);
+        String agentStr = meta.get(ConversationConstants.ROLE);
         if (agentStr == null) agentStr = meta.get("agent");
         AgentType agentRole = null;
         if (agentStr != null) {
@@ -100,7 +100,7 @@ public record DebateStreamEntry(
             return null;
         }
 
-        String agentStr = meta.get(ConversationProtocol.ROLE);
+        String agentStr = meta.get(ConversationConstants.ROLE);
         if (agentStr == null) agentStr = meta.get("agent");
         AgentType agentRole = null;
         if (agentStr != null) {

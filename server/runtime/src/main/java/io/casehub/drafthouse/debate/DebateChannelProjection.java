@@ -4,7 +4,7 @@ import io.casehub.agency.communication.dispatch.BoundedProjectionDecorator;
 import io.casehub.agency.communication.dispatch.ChannelMessageMeta;
 import io.casehub.agency.deliberation.conversation.ConversationFold;
 import io.casehub.agency.deliberation.conversation.ConversationProjection;
-import io.casehub.agency.deliberation.conversation.ConversationProtocol;
+import io.casehub.agency.deliberation.conversation.ConversationConstants;
 import io.casehub.agency.deliberation.conversation.ConversationRenderer;
 import io.casehub.agency.deliberation.conversation.ConversationRendererConfig;
 import io.casehub.agency.deliberation.conversation.ConversationState;
@@ -115,12 +115,12 @@ public class DebateChannelProjection extends ConversationProjection
             if (meta.containsKey("threadId")) {
                 return state;
             }
-            String              entryType = meta.get(ConversationProtocol.ENTRY_TYPE);
+            String              entryType = meta.get(ConversationConstants.ENTRY_TYPE);
             if ("ROUND_SNAPSHOT".equals(entryType)) {
                 return state;
             }
             if ("REPRIORITISE".equals(entryType)) {
-                String priorityStr = meta.get(ConversationProtocol.PRIORITY);
+                String priorityStr = meta.get(ConversationConstants.PRIORITY);
                 if (priorityStr == null) {
                     LOG.log(Level.WARNING, "REPRIORITISE missing priority — discarded");
                     return state;
@@ -132,8 +132,8 @@ public class DebateChannelProjection extends ConversationProjection
                     LOG.log(Level.WARNING, "REPRIORITISE invalid priority: " + priorityStr + " — discarded");
                     return state;
                 }
-                String role  = meta.get(ConversationProtocol.ROLE);
-                int    round = ChannelMessageMeta.parseInt(meta, ConversationProtocol.ROUND);
+                String role  = meta.get(ConversationConstants.ROLE);
+                int    round = ChannelMessageMeta.parseInt(meta, ConversationConstants.ROUND);
                 String body  = ChannelMessageMeta.bodyContent(sentinel(), message.content());
                 return ConversationFold.reprioritisePoint(state,
                                                           message.correlationId(), message.id(), message.type(),
