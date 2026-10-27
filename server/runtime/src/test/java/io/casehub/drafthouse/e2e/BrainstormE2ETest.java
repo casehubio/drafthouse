@@ -12,6 +12,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 import java.net.URL;
 import java.util.List;
@@ -20,6 +21,8 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
 
 @QuarkusTest
 @WithPlaywright
+@DisabledIfEnvironmentVariable(named = "CI", matches = "true",
+        disabledReason = "Playwright E2E tests require a browser — not available on CI runners")
 class BrainstormE2ETest {
 
     @InjectPlaywright
