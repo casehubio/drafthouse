@@ -15,7 +15,9 @@
     "@casehubio/pages-ui": "*",
     "@casehubio/pages-viz": "*",
     "lit": "^3.3.3",
-    "marked": "^15.0.0"
+    "marked": "^15.0.0",
+    "yaml": "^2.7.0",
+    "zod": "^4.0.0"
   },
   "resolutions": {
     "@casehubio/pages-component": "portal:./.casehub-packages/packages/pages-component",
