@@ -196,6 +196,7 @@
               <goal>unpack</goal>
             </goals>
             <configuration>
+              <overWriteSnapshots>true</overWriteSnapshots>
               <artifactItems>
                 <artifactItem>
                   <groupId>io.casehub</groupId>
