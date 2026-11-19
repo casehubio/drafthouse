@@ -4,6 +4,8 @@ date: 2026-06-18
 author: Mark Proctor
 projects: [casehub-drafthouse]
 tags: [encapsulation, persistence, domain-model, jpa, quarkus]
+entry_type: note
+subtype: diary
 ---
 
 # The Accessor That Was Lying

@@ -5,6 +5,8 @@ sequence: 24
 author: mdp
 projects: [casehub-drafthouse]
 tags: [websocket, pages, real-time, architecture]
+entry_type: note
+subtype: diary
 ---
 
 # Killing the Polling Loop

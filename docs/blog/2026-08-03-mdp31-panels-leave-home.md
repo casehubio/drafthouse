@@ -3,9 +3,12 @@ title: "Panels Leave Home"
 date: 2026-08-03
 sequence: 31
 tags: [extraction, blocks-ui, lit, components]
+entry_type: note
+subtype: diary
+projects: [casehubio/drafthouse]
 ---
 
-Extracted all 9 DraftHouse Lit panels into `@casehubio/agency-ui-document-workbench` —
+Extracted all 9 DraftHouse Lit panels into `@casehubio/blocks-ui-document-workbench` —
 a single package in blocks-ui that any CaseHub app can embed. The convergence analysis
 against existing blocks-ui components (blocks-channel-feed, blocks-timeline) confirmed
 they're genuinely different: debate feeds group by round with type-specific styling,
