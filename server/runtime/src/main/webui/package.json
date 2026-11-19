@@ -5,15 +5,16 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "dev": "node esbuild.config.mjs --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "node ../../../../scripts/link-casehub-packages.mjs"
   },
   "dependencies": {
-    "@casehubio/pages-component": "*",
-    "@casehubio/pages-component-terminal": "*",
-    "@casehubio/pages-data": "*",
-    "@casehubio/pages-runtime": "*",
-    "@casehubio/pages-ui": "*",
-    "@casehubio/pages-viz": "*",
+    "@casehubio/pages-component": "file:.casehub-packages/packages/pages-component",
+    "@casehubio/pages-component-terminal": "file:.casehub-packages/packages/pages-component-terminal",
+    "@casehubio/pages-data": "file:.casehub-packages/packages/pages-data",
+    "@casehubio/pages-runtime": "file:.casehub-packages/packages/pages-runtime",
+    "@casehubio/pages-ui": "file:.casehub-packages/packages/pages-ui",
+    "@casehubio/pages-viz": "file:.casehub-packages/packages/pages-viz",
     "@drdreo/heatmap": "^1.4.1",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
@@ -24,18 +25,6 @@
     "marked": "^15.0.0",
     "yaml": "^2.7.0",
     "zod": "^4.0.0"
-  },
-  "resolutions": {
-    "@casehubio/pages-component": "portal:./.casehub-packages/packages/pages-component",
-    "@casehubio/pages-component-terminal": "portal:./.casehub-packages/packages/pages-component-terminal",
-    "@casehubio/pages-data": "portal:./.casehub-packages/packages/pages-data",
-    "@casehubio/pages-primitives": "portal:./.casehub-packages/packages/pages-primitives",
-    "@casehubio/pages-runtime": "portal:./.casehub-packages/packages/pages-runtime",
-    "@casehubio/pages-table": "portal:./.casehub-packages/packages/pages-table",
-    "@casehubio/pages-ui": "portal:./.casehub-packages/packages/pages-ui",
-    "@casehubio/pages-ui-components": "portal:./.casehub-packages/packages/pages-ui-components",
-    "@casehubio/pages-ui-tokens": "portal:./.casehub-packages/packages/pages-ui-tokens",
-    "@casehubio/pages-viz": "portal:./.casehub-packages/packages/pages-viz"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
