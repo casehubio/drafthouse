@@ -211,10 +211,29 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
+        <version>3.5.0</version>
         <executions>
           <execution>
             <id>strip-casehub-internal-deps</id>
             <phase>generate-sources</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <executable>python3</executable>
+              <arguments>
+                <argument>-c</argument>
+                <argument>import json,sys;from pathlib import Path;d=Path(sys.argv[1])
+if not d.is_dir():print('No packages dir — skipping strip');sys.exit(0)
+c=0
+for p in sorted(d.glob('*/package.json')):
+ pkg=json.load(open(p));ch=False
+ for k in ('dependencies','peerDependencies','devDependencies'):
+  rm=[n for n in pkg.get(k,{}) if n.startswith('@casehubio/')]
+  for n in rm:del pkg[k][n];ch=True
+ if ch:json.dump(pkg,open(p,'w'),indent=2);open(p,'a').write('\n');c+=1
+print(f'Stripped internal deps from {c} packages')</argument>
+                <argument>${project.basedir}/src/main/webui/.casehub-packages/packages</argument>
+              </arguments>
+            </configuration>
           </execution>
         </executions>
       </plugin>
