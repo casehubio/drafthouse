@@ -6,22 +6,64 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isWatch = process.argv.includes("--watch");
 
-const mosaicPath = resolve(__dirname, "../../../../../../casehub-mosaic/components/document-workbench/src");
-const mosaicCorePath = resolve(__dirname, "../../../../../../casehub-mosaic/packages/mosaic-core/src");
+const mosaicRoot = resolve(__dirname, "../../../../../../casehub-mosaic");
 const pagesRoot = resolve(__dirname, "../../../../../../pages");
 
-const pagesSourcePlugin = {
-  name: "pages-source-resolve",
+function resolveEntry(baseDir, subpath) {
+  for (const sub of ["dist", "src"]) {
+    const dir = resolve(baseDir, sub);
+    if (!existsSync(dir)) continue;
+    if (!subpath) {
+      for (const idx of ["index.js", "index.ts"]) {
+        const entry = resolve(dir, idx);
+        if (existsSync(entry)) return entry;
+      }
+    } else {
+      for (const candidate of [
+        resolve(dir, subpath + ".ts"),
+        resolve(dir, subpath, "index.ts"),
+        resolve(dir, subpath + ".js"),
+        resolve(dir, subpath, "index.js"),
+      ]) {
+        if (existsSync(candidate)) return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+const mosaicResolvePlugin = {
+  name: "mosaic-resolve",
   setup(bld) {
-    bld.onResolve({ filter: /^@casehubio\// }, (args) => {
-      if (args.path.startsWith("@casehubio/mosaic")) return undefined;
+    bld.onResolve({ filter: /^@casehubio\/mosaic-/ }, (args) => {
       const parts = args.path.replace("@casehubio/", "").split("/");
       const pkgName = parts[0];
       let subpath = parts.slice(1).join("/");
       if (subpath.startsWith("dist/")) subpath = subpath.slice(5);
       subpath = subpath.replace(/\.js$/, "");
-      const dirs = ["packages", "components"];
-      for (const dir of dirs) {
+      const names = [pkgName];
+      if (pkgName.startsWith("mosaic-")) names.push(pkgName.slice(7));
+      for (const dir of ["packages", "components"]) {
+        for (const name of names) {
+          const entry = resolveEntry(resolve(mosaicRoot, dir, name), subpath);
+          if (entry) return { path: entry };
+        }
+      }
+      return undefined;
+    });
+  },
+};
+
+const pagesSourcePlugin = {
+  name: "pages-source-resolve",
+  setup(bld) {
+    bld.onResolve({ filter: /^@casehubio\/(?!mosaic-)/ }, (args) => {
+      const parts = args.path.replace("@casehubio/", "").split("/");
+      const pkgName = parts[0];
+      let subpath = parts.slice(1).join("/");
+      if (subpath.startsWith("dist/")) subpath = subpath.slice(5);
+      subpath = subpath.replace(/\.js$/, "");
+      for (const dir of ["packages", "components"]) {
         const srcDir = resolve(pagesRoot, dir, pkgName, "src");
         if (existsSync(srcDir)) {
           if (!subpath) {
@@ -58,11 +100,7 @@ const options = {
   minify: false,
   sourcemap: true,
   nodePaths: [resolve(__dirname, "node_modules"), resolve(pagesRoot, "node_modules")],
-  plugins: usePlugin ? [pagesSourcePlugin] : [],
-  alias: {
-    "@casehubio/mosaic-document-workbench": mosaicPath,
-    "@casehubio/mosaic-core": mosaicCorePath,
-  },
+  plugins: [mosaicResolvePlugin, ...(usePlugin ? [pagesSourcePlugin] : [])],
 };
 
 if (isWatch) {
