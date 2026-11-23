@@ -15,6 +15,8 @@
     "@casehubio/pages-runtime": "file:.casehub-packages/packages/pages-runtime",
     "@casehubio/pages-ui": "file:.casehub-packages/packages/pages-ui",
     "@casehubio/pages-viz": "file:.casehub-packages/packages/pages-viz",
+    "@casehubio/mosaic-document-workbench": "file:.casehub-packages/packages/document-workbench",
+    "@casehubio/mosaic-core": "file:.casehub-packages/packages/mosaic-core",
     "@drdreo/heatmap": "^1.4.1",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
